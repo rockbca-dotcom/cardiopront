@@ -1,0 +1,37 @@
+# Maia Health — O prontuário que pensa com você
+
+> A Maia Health é um prontuário eletrônico inteligente brasileiro construído para médicos. Combina transcrição de consultas por voz com IA, acompanhamento automatizado de pacientes via questionários (PROMs/PREMs) com canais WhatsApp/SMS/e-mail, prontuário, agenda, receituário digital e acesso da secretária — tudo em uma única plataforma. Foco em consultórios e clínicas de especialidades, com ênfase em ortopedia, fisioterapia, oncologia e cirurgia.
+
+## Empresa
+- Razão social: Maia Health Tecnologia LTDA
+- Localização: São Paulo, Brasil
+- Domínio principal: marketing.healthmaia.com
+- E-mail: contato@healthmaia.com
+- Modelo: SaaS (assinatura mensal, sem fidelidade)
+
+## Produto — pilares principais
+1. **Transcrição por voz com IA** — médico fala durante a consulta, a Maia transcreve, estrutura em SOAP/anamnese, gera prescrições e atestados.
+2. **Acompanhamento automatizado** — questionários clínicos validados (Lysholm, KOOS, IKDC, ASES, PHQ-9, EQ-5D e 80+ escores) enviados automaticamente.
+3. **Prontuário eletrônico** — anamnese, evolução, prescrição, atestado, anexos.
+4. **Agenda inteligente** — confirmação automática por WhatsApp, gestão de fila de espera.
+5. **Receituário digital** — assinatura digital ICP-Brasil, envio automático ao paciente.
+6. **Acesso da secretária** — perfil dedicado com permissões.
+
+## Diferenciais
+- Transcrição treinada em vocabulário médico brasileiro
+- Escores clínicos validados com aquisição/licenciamento incluídos
+- Conformidade com LGPD e CFM 1.821/2007
+- Suporte humano via WhatsApp
+
+## Páginas principais
+- Início: https://marketing.healthmaia.com/
+- Transcrição por voz: https://marketing.healthmaia.com/transcricao.html
+- Acompanhamento: https://marketing.healthmaia.com/acompanhamento.html
+- Preços: https://marketing.healthmaia.com/precos.html
+- Sobre: https://marketing.healthmaia.com/sobre.html
+- Fale conosco: https://marketing.healthmaia.com/fale-conosco.html
+
+## O que NÃO somos
+- Não é um marketplace de agendamento (como Doctoralia)
+- Não é só receituário digital (como Memed)
+- Não é prontuário hospitalar (foco em consultório/clínica)
