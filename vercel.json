@@ -1,6 +1,4 @@
 {
   "framework": "nextjs",
-  "regions": ["gru1"],
-  "buildCommand": "next build",
-  "outputDirectory": ".next"
+  "regions": ["gru1"]
 }
