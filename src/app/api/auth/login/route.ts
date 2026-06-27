@@ -5,34 +5,63 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { email, password } = <REDACTED> (await req.json());
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "E-mail e senha sao obrigatorios" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "E-mail e senha obrigatorios" }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-    if (!supabaseUrl || !anonKey) {
-      return NextResponse.json({ error: "Configuracao incompleta" }, { status: 500 });
-    }
-
     const supabase = createClient(supabaseUrl, anonKey);
 
+    // Try signInWithPassword with explicit error handling
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      console.error("Login error:", error.message, error.status);
+      // Log the full error for debugging
+      console.error("Auth error:", JSON.stringify({
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      }));
+
+      // If it's a fetch error, try the token endpoint directly
+      if (error.message.includes("fetch") || error.status === 0) {
+        try {
+          const tokenUrl = `${supabaseUrl}/auth/v1/token?grant_type=password`;
+          const resp = await fetch(tokenUrl, {
+            method: "POST",
+            headers: {
+              "apikey": anonKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          });
+          
+          if (resp.ok) {
+            const tokenData = await resp.json();
+            return NextResponse.json({
+              session: {
+                access_token: tokenData.access_token,
+                refresh_token: tokenData.refresh_token,
+                expires_at: tokenData.expires_at,
+              },
+              user: { id: tokenData.user?.id, email: tokenData.user?.email },
+            });
+          }
+        } catch (e) {
+          // Fall through to error response
+        }
+      }
+
       return NextResponse.json(
         { error: error.message || "Credenciais invalidas" },
-        { status: error.status || 401 }
+        { status: 401 }
       );
     }
 
@@ -42,16 +71,10 @@ export async function POST(req: NextRequest) {
         refresh_token: data.session?.refresh_token,
         expires_at: data.session?.expires_at,
       },
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-      },
+      user: { id: data.user.id, email: data.user.email },
     });
   } catch (error) {
     console.error("Login exception:", error);
-    return NextResponse.json(
-      { error: "Erro interno. Tente novamente." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
