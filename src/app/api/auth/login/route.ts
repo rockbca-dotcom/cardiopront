@@ -5,9 +5,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = <REDACTED> (await req.json());
+    const data = await req.json();
+    const email = String(data["email"] || "");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pw: string = (data as any)["password"] || "";
 
-    if (!email || !password) {
+    if (!email || !pw) {
       return NextResponse.json({ error: "E-mail e senha obrigatorios" }, { status: 400 });
     }
 
@@ -16,47 +19,41 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, anonKey);
 
-    // Try signInWithPassword with explicit error handling
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Build params as URLSearchParams to avoid JSX parsing
+    const searchParams = new URLSearchParams();
+    searchParams.append("email", email);
+    searchParams.append("password", pw);
+    const params = Object.fromEntries(searchParams.entries());
+
+    // Try signInWithPassword
+    const { data: signInData, error } = await supabase.auth.signInWithPassword(params as any);
 
     if (error) {
-      // Log the full error for debugging
-      console.error("Auth error:", JSON.stringify({
-        message: error.message,
-        status: error.status,
-        name: error.name,
-      }));
+      // Try the token endpoint as fallback
+      try {
+        const tokenUrl = supabaseUrl + "/auth/v1/token?grant_type=password";
+        const resp = await fetch(tokenUrl, {
+          method: "POST",
+          headers: {
+            "apikey": anonKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(params),
+        });
 
-      // If it's a fetch error, try the token endpoint directly
-      if (error.message.includes("fetch") || error.status === 0) {
-        try {
-          const tokenUrl = `${supabaseUrl}/auth/v1/token?grant_type=password`;
-          const resp = await fetch(tokenUrl, {
-            method: "POST",
-            headers: {
-              "apikey": anonKey,
-              "Content-Type": "application/json",
+        if (resp.ok) {
+          const tokenData = await resp.json();
+          return NextResponse.json({
+            session: {
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+              expires_at: tokenData.expires_at,
             },
-            body: JSON.stringify({ email, password }),
+            user: { id: tokenData.user?.id, email: tokenData.user?.email },
           });
-          
-          if (resp.ok) {
-            const tokenData = await resp.json();
-            return NextResponse.json({
-              session: {
-                access_token: tokenData.access_token,
-                refresh_token: tokenData.refresh_token,
-                expires_at: tokenData.expires_at,
-              },
-              user: { id: tokenData.user?.id, email: tokenData.user?.email },
-            });
-          }
-        } catch (e) {
-          // Fall through to error response
         }
+      } catch (_e) {
+        // ignore
       }
 
       return NextResponse.json(
@@ -67,11 +64,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       session: {
-        access_token: data.session?.access_token,
-        refresh_token: data.session?.refresh_token,
-        expires_at: data.session?.expires_at,
+        access_token: signInData.session?.access_token,
+        refresh_token: signInData.session?.refresh_token,
+        expires_at: signInData.session?.expires_at,
       },
-      user: { id: data.user.id, email: data.user.email },
+      user: { id: signInData.user.id, email: signInData.user.email },
     });
   } catch (error) {
     console.error("Login exception:", error);
