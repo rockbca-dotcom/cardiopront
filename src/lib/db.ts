@@ -2,12 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-// Client for browser (with RLS)
+// Client for browser and server-side (RLS is disabled for MVP)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Client for server-side (bypasses RLS)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Alias for backward compatibility
+export const supabaseAdmin = supabase;
 
 export default supabase;

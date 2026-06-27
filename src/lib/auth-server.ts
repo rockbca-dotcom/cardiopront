@@ -1,6 +1,6 @@
-import { supabaseAdmin } from "./db";
+import { supabase } from "./db";
 
 export async function getServerUser() {
-  const { data } = await supabaseAdmin.auth.getUser();
+  const { data } = await supabase.auth.getUser();
   return data.user;
 }
