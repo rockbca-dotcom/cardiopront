@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signIn } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/db";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -10,44 +9,48 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "E-mail e senha são obrigatórios" },
+        { error: "E-mail e senha sao obrigatorios" },
         { status: 400 }
       );
     }
 
-    let data: { user: { id: string } | null; session: unknown };
-    try {
-      const result = await signIn(email, password);
-      data = result as unknown as { user: { id: string } | null; session: unknown };
-    } catch {
-      return NextResponse.json(
-        { error: "E-mail ou senha incorretos" },
-        { status: 401 }
-      );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+    if (!supabaseUrl || !anonKey) {
+      return NextResponse.json({ error: "Configuracao incompleta" }, { status: 500 });
     }
 
-    if (!data.user) {
+    const supabase = createClient(supabaseUrl, anonKey);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error("Login error:", error.message, error.status);
       return NextResponse.json(
-        { error: "Credenciais inválidas" },
-        { status: 401 }
+        { error: error.message || "Credenciais invalidas" },
+        { status: error.status || 401 }
       );
     }
-
-    const { data: medico } = await supabaseAdmin
-      .from("medicos")
-      .select("id, nome, crm, crm_uf, plano")
-      .eq("auth_user_id", data.user.id)
-      .single();
 
     return NextResponse.json({
-      session: data.session,
-      user: { id: data.user.id },
-      medico,
+      session: {
+        access_token: data.session?.access_token,
+        refresh_token: data.session?.refresh_token,
+        expires_at: data.session?.expires_at,
+      },
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+      },
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("Login exception:", error);
     return NextResponse.json(
-      { error: "Erro interno do servidor" },
+      { error: "Erro interno. Tente novamente." },
       { status: 500 }
     );
   }
