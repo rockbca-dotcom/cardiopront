@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getUser } from "@/lib/auth";
 import Sidebar from "./Sidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -9,23 +10,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Invalid token");
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
+    async function checkAuth() {
+      const user = await getUser();
+      if (!user) {
         router.push("/login");
-      })
-      .finally(() => setLoading(false));
+        return;
+      }
+      setLoading(false);
+    }
+    checkAuth();
   }, [router]);
 
   if (loading) {

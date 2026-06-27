@@ -1,26 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { verifyToken, parseAuthHeader } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-server";
+import { supabaseAdmin } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const [rows] = await db.execute(
-      `SELECT e.*, te.nome as tipo_exame_nome, te.categoria, p.nome as paciente_nome
-       FROM exames e
-       JOIN tipos_exame te ON e.tipo_exame_id = te.id
-       JOIN pacientes p ON e.paciente_id = p.id
-       JOIN consultas c ON e.consulta_id = c.id
-       WHERE c.medico_id = ?
-       ORDER BY e.data_pedido DESC`,
-      [payload.id]
-    );
+    const { data: medico } = await supabaseAdmin
+      .from("medicos")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
 
-    return NextResponse.json({ exames: rows });
+    if (!medico) return NextResponse.json({ exames: [] });
+
+    const { data: consultas } = await supabaseAdmin
+      .from("consultas")
+      .select("id")
+      .eq("medico_id", medico.id);
+
+    const consultaIds = consultas?.map(c => c.id) || [];
+
+    const { data } = await supabaseAdmin
+      .from("exames")
+      .select("*, tipos_exame(nome, categoria), pacientes(nome)")
+      .in("consulta_id", consultaIds)
+      .order("data_pedido", { ascending: false });
+
+    return NextResponse.json({ exames: data || [] });
   } catch (error) {
     console.error("Error fetching exams:", error);
     return NextResponse.json({ exames: [] });
@@ -29,19 +37,26 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { consulta_id, paciente_id, tipo_exame_id, prioridade, indicacao_clinica } = await req.json();
+    const body = await req.json();
 
-    const [result] = await db.execute(
-      "INSERT INTO exames (consulta_id, paciente_id, tipo_exame_id, prioridade, indicacao_clinica, data_pedido) VALUES (?, ?, ?, ?, ?, CURDATE())",
-      [consulta_id, paciente_id, tipo_exame_id, prioridade || "rotina", indicacao_clinica || null]
-    );
+    const { data, error } = await supabaseAdmin
+      .from("exames")
+      .insert({
+        consulta_id: body.consulta_id,
+        paciente_id: body.paciente_id,
+        tipo_exame_id: body.tipo_exame_id,
+        prioridade: body.prioridade || "rotina",
+        indicacao_clinica: body.indicacao_clinica || null,
+      })
+      .select()
+      .single();
 
-    return NextResponse.json({ id: (result as { insertId: number }).insertId, message: "Exame pedido" });
+    if (error) throw error;
+
+    return NextResponse.json({ exame: data, message: "Exame pedido" });
   } catch (error) {
     console.error("Error creating exam:", error);
     return NextResponse.json({ error: "Erro ao pedir exame" }, { status: 500 });

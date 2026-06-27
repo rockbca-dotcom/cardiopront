@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { verifyToken, parseAuthHeader } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-server";
+import { supabaseAdmin } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const [rows] = await db.execute(
-      `SELECT pr.*, p.nome as paciente_nome
-       FROM prescricoes pr
-       JOIN pacientes p ON pr.paciente_id = p.id
-       JOIN consultas c ON pr.consulta_id = c.id
-       WHERE c.medico_id = ?
-       ORDER BY pr.data_prescricao DESC`,
-      [payload.id]
-    );
+    const { data: medico } = await supabaseAdmin
+      .from("medicos")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
 
-    return NextResponse.json({ prescricoes: rows });
+    if (!medico) return NextResponse.json({ prescricoes: [] });
+
+    const { data: consultas } = await supabaseAdmin
+      .from("consultas")
+      .select("id")
+      .eq("medico_id", medico.id);
+
+    const consultaIds = consultas?.map(c => c.id) || [];
+
+    const { data } = await supabaseAdmin
+      .from("prescricoes")
+      .select("*, pacientes(nome)")
+      .in("consulta_id", consultaIds)
+      .order("data_prescricao", { ascending: false });
+
+    return NextResponse.json({ prescricoes: data || [] });
   } catch (error) {
     console.error("Error fetching prescriptions:", error);
     return NextResponse.json({ prescricoes: [] });
@@ -28,19 +37,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { consulta_id, paciente_id, medicamento, principio_ativo, dose, unidade, frequencia, posologia, via, advertencias } = await req.json();
+    const body = await req.json();
 
-    const [result] = await db.execute(
-      "INSERT INTO prescricoes (consulta_id, paciente_id, data_prescricao, medicamento, principio_ativo, dose, unidade, frequencia, posologia, via, advertencias) VALUES (?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)",
-      [consulta_id, paciente_id, medicamento, principio_ativo || null, dose || null, unidade || null, frequencia || null, posologia || null, via || null, advertencias || null]
-    );
+    const { data, error } = await supabaseAdmin
+      .from("prescricoes")
+      .insert({
+        consulta_id: body.consulta_id,
+        paciente_id: body.paciente_id,
+        medicamento: body.medicamento,
+        principio_ativo: body.principio_ativo || null,
+        dose: body.dose || null,
+        unidade: body.unidade || null,
+        frequencia: body.frequencia || null,
+        posologia: body.posologia || null,
+        via: body.via || null,
+        advertencias: body.advertencias || null,
+      })
+      .select()
+      .single();
 
-    return NextResponse.json({ id: (result as { insertId: number }).insertId, message: "Prescrição salva" });
+    if (error) throw error;
+
+    return NextResponse.json({ prescricao: data, message: "Prescrição salva" });
   } catch (error) {
     console.error("Error creating prescription:", error);
     return NextResponse.json({ error: "Erro ao salvar prescrição" }, { status: 500 });

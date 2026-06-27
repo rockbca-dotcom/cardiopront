@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken, parseAuthHeader } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-server";
 import { transcribeAudio } from "@/lib/openai";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const formData = await req.formData();
     const file = formData.get("audio") as File;

@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { verifyToken, parseAuthHeader } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-server";
+import { supabaseAdmin } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const [rows] = await db.execute(
-      `SELECT c.*, p.nome as paciente_nome 
-       FROM consultas c 
-       JOIN pacientes p ON c.paciente_id = p.id 
-       WHERE c.medico_id = ? 
-       ORDER BY c.data_consulta DESC`,
-      [payload.id]
-    );
+    const { data: medico } = await supabaseAdmin
+      .from("medicos")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
 
-    return NextResponse.json({ consultas: rows });
+    if (!medico) return NextResponse.json({ error: "Médico não encontrado" }, { status: 404 });
+
+    const { data } = await supabaseAdmin
+      .from("consultas")
+      .select("*, pacientes(nome)")
+      .eq("medico_id", medico.id)
+      .order("data_consulta", { ascending: false });
+
+    return NextResponse.json({ consultas: data || [] });
   } catch (error) {
     console.error("Error fetching consultations:", error);
     return NextResponse.json({ consultas: [] });
@@ -27,30 +30,56 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    const payload = verifyToken(token);
-    if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const {
-      paciente_id, data_consulta, tipo, motivo_consulta, queixa_principal,
-      pa_sistolica, pa_diastolica, fc, peso_kg, altura_cm,
-      diagnostico, cid10, conduta, orientacoes, sintese_ia
-    } = await req.json();
+    const { data: medico } = await supabaseAdmin
+      .from("medicos")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
+
+    if (!medico) return NextResponse.json({ error: "Médico não encontrado" }, { status: 404 });
+
+    const body = await req.json();
 
     let imc = null;
-    if (peso_kg && altura_cm) {
-      const altura_m = altura_cm / 100;
-      imc = parseFloat((peso_kg / (altura_m * altura_m)).toFixed(1));
+    if (body.peso_kg && body.altura_cm) {
+      const altura_m = body.altura_cm / 100;
+      imc = parseFloat((body.peso_kg / (altura_m * altura_m)).toFixed(1));
     }
 
-    const [result] = await db.execute(
-      `INSERT INTO consultas (paciente_id, medico_id, data_consulta, tipo, motivo_consulta, queixa_principal, pa_sistolica, pa_diastolica, fc, peso_kg, altura_cm, imc, diagnostico, cid10, conduta, orientacoes, sintese_ia) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [paciente_id, payload.id, data_consulta, tipo || "presencial", motivo_consulta, queixa_principal, pa_sistolica || null, pa_diastolica || null, fc || null, peso_kg || null, altura_cm || null, imc, diagnostico || null, cid10 || null, conduta || null, orientacoes || null, sintese_ia || null]
-    );
+    const { data, error } = await supabaseAdmin
+      .from("consultas")
+      .insert({
+        paciente_id: body.paciente_id,
+        medico_id: medico.id,
+        data_consulta: body.data_consulta,
+        tipo: body.tipo || "presencial",
+        motivo_consulta: body.motivo_consulta || null,
+        queixa_principal: body.queixa_principal || null,
+        pa_sistolica: body.pa_sistolica || null,
+        pa_diastolica: body.pa_diastolica || null,
+        fc: body.fc || null,
+        fr: body.fr || null,
+        saturacao_o2: body.saturacao_o2 || null,
+        peso_kg: body.peso_kg || null,
+        altura_cm: body.altura_cm || null,
+        imc,
+        temp_celsius: body.temp_celsius || null,
+        exame_fisico_geral: body.exame_fisico_geral || null,
+        diagnostico: body.diagnostico || null,
+        cid10: body.cid10 || null,
+        conduta: body.conduta || null,
+        orientacoes: body.orientacoes || null,
+        sintese_ia: body.sintese_ia || null,
+      })
+      .select()
+      .single();
 
-    return NextResponse.json({ id: (result as { insertId: number }).insertId, message: "Consulta salva" });
+    if (error) throw error;
+
+    return NextResponse.json({ consulta: data, message: "Consulta salva" });
   } catch (error) {
     console.error("Error creating consultation:", error);
     return NextResponse.json({ error: "Erro ao salvar consulta" }, { status: 500 });

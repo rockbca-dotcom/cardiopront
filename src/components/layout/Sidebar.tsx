@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { signOut } from "@/lib/auth";
 
 const navItems = [
   { href: "/app", icon: LayoutDashboard, label: "Dashboard" },
@@ -24,6 +25,11 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  async function handleLogout() {
+    await signOut();
+    window.location.href = "/login";
+  }
 
   return (
     <aside className="w-64 bg-white border-r border-surface-200 flex flex-col h-screen sticky top-0">
@@ -56,10 +62,7 @@ export default function Sidebar() {
 
       <div className="p-3 border-t border-surface-200">
         <button
-          onClick={() => {
-            localStorage.removeItem("token");
-            window.location.href = "/login";
-          }}
+          onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-surface-600 hover:bg-red-50 hover:text-red-600 w-full transition-colors"
         >
           <LogOut className="w-5 h-5" />

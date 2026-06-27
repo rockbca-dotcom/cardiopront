@@ -1,40 +1,50 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
+"use client";
 
-const JWT_SECRET = process.env.JWT_SECRET || "cardiopront-dev-secret-change-in-production";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+import { supabase } from "./db";
 
-export interface JWTPayload {
-  id: number;
+export interface AuthUser {
+  id: string;
   email: string;
   nome: string;
   crm: string;
   crmUf: string;
+  plano: string;
 }
 
-export function signToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+export async function signUp(nome: string, email: string, password: string, crm: string, crmUf: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { nome, crm, crm_uf: crmUf },
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
 }
 
-export function verifyToken(token: string): JWTPayload | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
-  } catch {
-    return null;
-  }
+export async function signIn(email: string, password: string) {
+  const res = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (res.error) throw new Error(res.error.message);
+  return res.data;
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw new Error(error.message);
 }
 
-export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+export async function getSession() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
 }
 
-export function parseAuthHeader(header: string | null): string | null {
-  if (!header) return null;
-  const [type, token] = header.split(" ");
-  if (type !== "Bearer" || !token) return null;
-  return token;
+export async function getUser() {
+  const { data } = await supabase.auth.getUser();
+  return data.user;
 }

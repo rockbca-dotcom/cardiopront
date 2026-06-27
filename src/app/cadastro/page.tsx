@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Heart, Eye, EyeOff } from "lucide-react";
+import { signUp } from "@/lib/auth";
 
 export default function CadastroPage() {
   const [nome, setNome] = useState("");
@@ -20,23 +21,11 @@ export default function CadastroPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, email, crm, crm_uf: crmUf, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Erro ao criar conta");
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
+      await signUp(nome, email, password, crm, crmUf);
       window.location.href = "/app";
-    } catch {
-      setError("Erro de conexão. Tente novamente.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro de conexão";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -63,48 +52,22 @@ export default function CadastroPage() {
 
           <div>
             <label className="label">Nome completo</label>
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="input-field"
-              placeholder="Dr. João Silva"
-              required
-            />
+            <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} className="input-field" placeholder="Dr. João Silva" required />
           </div>
 
           <div>
             <label className="label">E-mail</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="seu@email.com"
-              required
-            />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" placeholder="seu@email.com" required />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">CRM</label>
-              <input
-                type="text"
-                value={crm}
-                onChange={(e) => setCrm(e.target.value)}
-                className="input-field"
-                placeholder="123456"
-                required
-              />
+              <input type="text" value={crm} onChange={(e) => setCrm(e.target.value)} className="input-field" placeholder="123456" required />
             </div>
             <div>
               <label className="label">UF</label>
-              <select
-                value={crmUf}
-                onChange={(e) => setCrmUf(e.target.value)}
-                className="input-field"
-                required
-              >
+              <select value={crmUf} onChange={(e) => setCrmUf(e.target.value)} className="input-field" required>
                 <option value="">--</option>
                 {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map(uf => (
                   <option key={uf} value={uf}>{uf}</option>
@@ -125,29 +88,19 @@ export default function CadastroPage() {
                 minLength={6}
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400"
-              >
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full h-11"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full h-11">
             {loading ? "Criando conta..." : "Criar conta grátis"}
           </button>
 
           <p className="text-center text-sm text-surface-600">
             Já tem conta?{" "}
-            <Link href="/login" className="text-primary-600 font-medium hover:underline">
-              Entrar
-            </Link>
+            <Link href="/login" className="text-primary-600 font-medium hover:underline">Entrar</Link>
           </p>
         </form>
       </div>

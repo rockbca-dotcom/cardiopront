@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Heart, Eye, EyeOff } from "lucide-react";
+import { signIn } from "@/lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,24 +18,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Erro ao fazer login");
-        return;
-      }
-
-      // Store token and redirect
-      localStorage.setItem("token", data.token);
+      await signIn(email, password);
       window.location.href = "/app";
-    } catch {
-      setError("Erro de conexão. Tente novamente.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro de conexão";
+      setError(message || "E-mail ou senha incorretos");
     } finally {
       setLoading(false);
     }
@@ -61,50 +49,26 @@ export default function LoginPage() {
 
           <div>
             <label className="label">E-mail</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="seu@email.com"
-              required
-            />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" placeholder="seu@email.com" required />
           </div>
 
           <div>
             <label className="label">Senha</label>
             <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field pr-10"
-                placeholder="••••••••"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400"
-              >
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="input-field pr-10" placeholder="••••••••" required />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full h-11"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full h-11">
             {loading ? "Entrando..." : "Entrar"}
           </button>
 
           <p className="text-center text-sm text-surface-600">
             Não tem conta?{" "}
-            <Link href="/cadastro" className="text-primary-600 font-medium hover:underline">
-              Cadastre-se grátis
-            </Link>
+            <Link href="/cadastro" className="text-primary-600 font-medium hover:underline">Cadastre-se grátis</Link>
           </p>
         </form>
       </div>

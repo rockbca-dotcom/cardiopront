@@ -1,38 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { verifyToken, parseAuthHeader } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-server";
+import { supabaseAdmin } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = parseAuthHeader(req.headers.get("authorization"));
-    if (!token) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const user = await getServerUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+    const { data: medico } = await supabaseAdmin
+      .from("medicos")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
 
-    const [pacientes] = await db.execute(
-      "SELECT COUNT(*) as count FROM pacientes WHERE medico_id = ?",
-      [payload.id]
-    );
+    if (!medico) return NextResponse.json({ pacientes: 0, consultas: 0, exames: 0 });
 
-    const [consultas] = await db.execute(
-      "SELECT COUNT(*) as count FROM consultas WHERE medico_id = ?",
-      [payload.id]
-    );
+    const [{ count: pacientes }, { count: consultas }, { data: consultaIds }] = await Promise.all([
+      supabaseAdmin.from("pacientes").select("*", { count: "exact", head: true }).eq("medico_id", medico.id),
+      supabaseAdmin.from("consultas").select("*", { count: "exact", head: true }).eq("medico_id", medico.id),
+      supabaseAdmin.from("consultas").select("id").eq("medico_id", medico.id),
+    ]);
 
-    const [exames] = await db.execute(
-      "SELECT COUNT(*) as count FROM exames e JOIN consultas c ON e.consulta_id = c.id WHERE c.medico_id = ?",
-      [payload.id]
-    );
+    const { count: examesCount } = await supabaseAdmin
+      .from("exames")
+      .select("*", { count: "exact", head: true })
+      .in("consulta_id", consultaIds?.map(c => c.id) || []);
 
     return NextResponse.json({
-      pacientes: (pacientes as Array<{ count: number }>)[0].count,
-      consultas: (consultas as Array<{ count: number }>)[0].count,
-      exames: (exames as Array<{ count: number }>)[0].count,
+      pacientes: pacientes || 0,
+      consultas: consultas || 0,
+      exames: examesCount || 0,
     });
   } catch (error) {
     console.error("Stats error:", error);

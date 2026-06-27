@@ -1,24 +1,13 @@
-import mysql from "mysql2/promise";
+import { createClient } from "@supabase/supabase-js";
 
-const globalForDb = globalThis as unknown as {
-  __mysqlPool?: mysql.Pool;
-};
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-export const db =
-  globalForDb.__mysqlPool ??
-  mysql.createPool({
-    host: process.env.DB_HOST || "localhost",
-    port: parseInt(process.env.DB_PORT || "3306"),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "cardiopront",
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-  });
+// Client for browser (with RLS)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__mysqlPool = db;
-}
+// Client for server-side (bypasses RLS)
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-export default db;
+export default supabase;
