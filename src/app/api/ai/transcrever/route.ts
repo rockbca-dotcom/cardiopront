@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerUser } from "@/lib/auth-server";
 import { transcribeAudio } from "@/lib/openai";
 
+// Force dynamic rendering
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getServerUser();

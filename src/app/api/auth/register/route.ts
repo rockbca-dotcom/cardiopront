@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { signUp } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const { nome, email, crm, crm_uf, password } = await req.json();

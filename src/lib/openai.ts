@@ -1,17 +1,14 @@
 import OpenAI from "openai";
 
-const globalForOpenAI = globalThis as unknown as {
-  __openai?: OpenAI;
-};
+let openaiClient: OpenAI | null = null;
 
-export const openai =
-  globalForOpenAI.__openai ??
-  new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || "",
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForOpenAI.__openai = openai;
+function getOpenAIClient(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || "",
+    });
+  }
+  return openaiClient;
 }
 
 const SYNTHESIS_SYSTEM_PROMPT = `Você é um assistente especializado em cardiologia clínica. Sua tarefa é analisar transcrições de consultas cardiológicas e produzir sínteses estruturadas em JSON.
@@ -36,11 +33,15 @@ Formato de resposta (JSON puro, sem markdown):
 }`;
 
 export async function synthesizeConsultation(transcription: string): Promise<string> {
+  const openai = getOpenAIClient();
+  
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: SYNTHESIS_SYSTEM_PROMPT },
-      { role: "user", content: `Transcrição da consulta:\n\n${transcription}` },
+      { role: "user", content: `Transcrição da consulta:
+
+${transcription}` },
     ],
     temperature: 0.3,
     max_tokens: 1500,
@@ -50,6 +51,8 @@ export async function synthesizeConsultation(transcription: string): Promise<str
 }
 
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
+  const openai = getOpenAIClient();
+  
   const blob = new Blob([audioBuffer as BlobPart], { type: "audio/webm" });
   const formData = new FormData();
   formData.append("file", blob, "audio.webm");
