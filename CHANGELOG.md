@@ -10,3 +10,4 @@
 - Adicionado bucket `consultation-audio` no Supabase para persistência dos arquivos gravados.
 - A prescrição passou a estimar TFGe/ClCr com base no paciente e na creatinina sérica, com alertas automáticos para medicamentos que exigem ajuste renal.
 - A impressão da receita passou a usar a sessão autenticada por cookie, sem depender de token em `localStorage`.
+- O contrato compartilhado de consulta passou a tipar `sintese_ia` como objeto estruturado da IA em vez de string.

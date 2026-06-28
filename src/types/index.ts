@@ -1,3 +1,5 @@
+import type { ConsultationAIDraft } from "@/lib/consultation-ai";
+
 export interface Medico {
   id: number;
   nome: string;
@@ -74,7 +76,7 @@ export interface Consulta {
   orientacoes: string | null;
   audio_url: string | null;
   transcricao_completa: string | null;
-  sintese_ia: string | null;
+  sintese_ia: ConsultationAIDraft | null;
   criado_em: string;
 }
 
