@@ -2,23 +2,14 @@
 
 import { useState } from "react";
 import { Save } from "lucide-react";
+
 import RecordingButton from "./RecordingButton";
 import SynthesisPanel from "./SynthesisPanel";
+import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
 interface Patient {
   id: number;
   nome: string;
-}
-
-interface SynthesisData {
-  motivo_consulta?: string;
-  achados_relevantes?: string[];
-  diagnosticos_suspeitos?: string[];
-  exames_pedidos?: Array<{ tipo: string; indicacao: string }>;
-  conduta?: string;
-  medicamentos_ajustados?: Array<{ nome: string; dose: string; acao: string }>;
-  sinais_de_alerta?: string[];
-  orientacoes_paciente?: string;
 }
 
 interface ConsultationFormProps {
@@ -26,50 +17,76 @@ interface ConsultationFormProps {
   onSave: (data: Record<string, unknown>) => Promise<void>;
 }
 
-export default function ConsultationForm({ patients, onSave }: ConsultationFormProps) {
-  const [transcription, setTranscription] = useState("");
-  const [synthesis, setSynthesis] = useState<SynthesisData | null>(null);
-  const [saving, setSaving] = useState(false);
+const initialForm = {
+  paciente_id: "",
+  data_consulta: new Date().toISOString().slice(0, 16),
+  tipo: "presencial",
+  motivo_consulta: "",
+  queixa_principal: "",
+  pa_sistolica: "",
+  pa_diastolica: "",
+  fc: "",
+  fr: "",
+  temp_celsius: "",
+  saturacao_o2: "",
+  peso_kg: "",
+  altura_cm: "",
+  exame_fisico_geral: "",
+  diagnostico: "",
+  cid10: "",
+  conduta: "",
+  orientacoes: "",
+};
 
-  const [form, setForm] = useState({
-    paciente_id: "",
-    data_consulta: new Date().toISOString().slice(0, 16),
-    tipo: "presencial",
-    motivo_consulta: "",
-    queixa_principal: "",
-    pa_sistolica: "",
-    pa_diastolica: "",
-    fc: "",
-    fr: "",
-    temp_celsius: "",
-    saturacao_o2: "",
-    peso_kg: "",
-    altura_cm: "",
-    exame_fisico_geral: "",
-    diagnostico: "",
-    cid10: "",
-    conduta: "",
-    orientacoes: "",
-  });
+function mergeSynthesisIntoForm(formState: typeof initialForm, synthesis: ConsultationAIDraft) {
+  const next = { ...formState };
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  if (!next.motivo_consulta.trim() && synthesis.motivo_consulta.trim()) {
+    next.motivo_consulta = synthesis.motivo_consulta;
   }
 
-  function handleSynthesis(synthData: SynthesisData) {
-    setSynthesis(synthData);
-    // Pre-fill form with synthesis data
-    if (synthData.motivo_consulta) setForm((f) => ({ ...f, motivo_consulta: synthData.motivo_consulta as string }));
-    if (synthData.conduta) setForm((f) => ({ ...f, conduta: synthData.conduta as string }));
-    if (synthData.orientacoes_paciente) setForm((f) => ({ ...f, orientacoes: synthData.orientacoes_paciente as string }));
-    if (synthData.diagnosticos_suspeitos && Array.isArray(synthData.diagnosticos_suspeitos)) {
-      setForm((f) => ({ ...f, diagnostico: (synthData.diagnosticos_suspeitos as string[]).join("; ") }));
+  if (!next.queixa_principal.trim()) {
+    if (synthesis.queixa_principal.trim()) {
+      next.queixa_principal = synthesis.queixa_principal;
+    } else if (synthesis.historia_doenca_atual.trim()) {
+      next.queixa_principal = synthesis.historia_doenca_atual;
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  if (!next.conduta.trim() && synthesis.conduta.trim()) {
+    next.conduta = synthesis.conduta;
+  }
+
+  if (!next.orientacoes.trim() && synthesis.orientacoes_paciente.trim()) {
+    next.orientacoes = synthesis.orientacoes_paciente;
+  }
+
+  if (!next.diagnostico.trim() && synthesis.diagnosticos_suspeitos.length > 0) {
+    next.diagnostico = synthesis.diagnosticos_suspeitos.join("; ");
+  }
+
+  return next;
+}
+
+export default function ConsultationForm({ patients, onSave }: ConsultationFormProps) {
+  const [transcription, setTranscription] = useState("");
+  const [synthesis, setSynthesis] = useState<ConsultationAIDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(initialForm);
+
+  function handleChange(event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    setForm({ ...form, [event.target.name]: event.target.value });
+  }
+
+  function handleSynthesis(synthData: ConsultationAIDraft) {
+    setSynthesis(synthData);
+    setForm((currentForm) => mergeSynthesisIntoForm(currentForm, synthData));
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setSaving(true);
+
     try {
       await onSave({
         ...form,
@@ -81,7 +98,8 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
         peso_kg: form.peso_kg ? parseFloat(form.peso_kg) : null,
         altura_cm: form.altura_cm ? parseFloat(form.altura_cm) : null,
         temp_celsius: form.temp_celsius ? parseFloat(form.temp_celsius) : null,
-        sintese_ia: synthesis ? JSON.stringify(synthesis) : null,
+        transcricao_completa: transcription.trim() || null,
+        sintese_ia: synthesis ?? null,
       });
     } finally {
       setSaving(false);
@@ -93,10 +111,7 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
       {/* Recording Section */}
       <div className="card">
         <h2 className="font-semibold text-surface-900 mb-4">Gravação da consulta</h2>
-        <RecordingButton
-          onTranscription={(text) => setTranscription(text)}
-          onSynthesis={handleSynthesis}
-        />
+        <RecordingButton onTranscription={(text) => setTranscription(text)} onSynthesis={handleSynthesis} />
         {transcription && (
           <div className="mt-4 p-3 bg-surface-50 rounded-lg border border-surface-200">
             <p className="text-xs font-medium text-surface-500 mb-1">Transcrição bruta:</p>
@@ -106,9 +121,7 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
       </div>
 
       {/* Synthesis Panel */}
-      {synthesis && (
-        <SynthesisPanel synthesis={synthesis} onFillForm={handleSynthesis} />
-      )}
+      {synthesis && <SynthesisPanel synthesis={synthesis} onFillForm={handleSynthesis} />}
 
       {/* Patient Selection */}
       <div className="card">
@@ -118,8 +131,10 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
             <label className="label">Paciente *</label>
             <select name="paciente_id" value={form.paciente_id} onChange={handleChange} className="input-field" required>
               <option value="">Selecione...</option>
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>{p.nome}</option>
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.nome}
+                </option>
               ))}
             </select>
           </div>
@@ -144,11 +159,23 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
         <div className="space-y-4">
           <div>
             <label className="label">Motivo da consulta</label>
-            <textarea name="motivo_consulta" value={form.motivo_consulta} onChange={handleChange} className="input-field min-h-[60px]" placeholder="Ex: Acompanhamento de hipertensão, dor torácica..." />
+            <textarea
+              name="motivo_consulta"
+              value={form.motivo_consulta}
+              onChange={handleChange}
+              className="input-field min-h-[60px]"
+              placeholder="Ex: Acompanhamento de hipertensão, dor torácica..."
+            />
           </div>
           <div>
             <label className="label">Queixa principal</label>
-            <textarea name="queixa_principal" value={form.queixa_principal} onChange={handleChange} className="input-field min-h-[80px]" placeholder="Descreva a queixa principal do paciente..." />
+            <textarea
+              name="queixa_principal"
+              value={form.queixa_principal}
+              onChange={handleChange}
+              className="input-field min-h-[80px]"
+              placeholder="Descreva a queixa principal do paciente..."
+            />
           </div>
         </div>
       </div>

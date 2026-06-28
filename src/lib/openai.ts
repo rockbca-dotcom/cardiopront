@@ -1,58 +1,66 @@
 import OpenAI from "openai";
 
+import {
+  CONSULTATION_AI_SYSTEM_PROMPT,
+  ConsultationAIDraft,
+  parseConsultationAIDraft,
+} from "./consultation-ai";
+
 let openaiClient: OpenAI | null = null;
+
+function getOpenAIApiKey(): string {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY não configurada");
+  }
+  return apiKey;
+}
 
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
     openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "",
+      apiKey: getOpenAIApiKey(),
     });
   }
+
   return openaiClient;
 }
 
-const SYNTHESIS_SYSTEM_PROMPT = `Você é um assistente especializado em cardiologia clínica. Sua tarefa é analisar transcrições de consultas cardiológicas e produzir sínteses estruturadas em JSON.
+export async function synthesizeConsultation(transcription: string): Promise<ConsultationAIDraft> {
+  const cleanTranscription = transcription.trim();
+  if (!cleanTranscription) {
+    throw new Error("Transcrição vazia");
+  }
 
-Diretrizes:
-- Seja preciso e conciso com terminologia médica
-- Identifique achados clínicos relevantes
-- Destaque sinais de alerta que requerem atenção
-- Use nomenclatura padrão em português brasileiro
-- Se algo não foi mencionado na transcrição, use string vazia ou array vazio
-
-Formato de resposta (JSON puro, sem markdown):
-{
-  "motivo_consulta": "motivo principal da consulta em 1-2 frases",
-  "achados_relevantes": ["achado 1", "achado 2"],
-  "diagnosticos_suspeitos": ["diagnóstico 1"],
-  "exames_pedidos": [{"tipo": "ECG", "indicacao": "avaliação de arritmia"}],
-  "conduta": "conduta terapêutica adotada",
-  "medicamentos_ajustados": [{"nome": "Enalapril", "dose": "10mg", "acao": "aumento de dose"}],
-  "sinais_de_alerta": ["sinal 1", "sinal 2"],
-  "orientacoes_paciente": "orientações dadas ao paciente"
-}`;
-
-export async function synthesizeConsultation(transcription: string): Promise<string> {
   const openai = getOpenAIClient();
-  
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: SYNTHESIS_SYSTEM_PROMPT },
-      { role: "user", content: `Transcrição da consulta:
-
-${transcription}` },
+      {
+        role: "system",
+        content: CONSULTATION_AI_SYSTEM_PROMPT,
+      },
+      {
+        role: "user",
+        content: `Transcrição da consulta:\n\n${cleanTranscription}`,
+      },
     ],
-    temperature: 0.3,
+    temperature: 0.2,
     max_tokens: 1500,
   });
 
-  return response.choices[0]?.message?.content || "{}";
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("Resposta vazia da IA");
+  }
+
+  return parseConsultationAIDraft(content);
 }
 
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
-  const openai = getOpenAIClient();
-  
+  const apiKey = getOpenAIApiKey();
+
   const blob = new Blob([audioBuffer as BlobPart], { type: "audio/webm" });
   const formData = new FormData();
   formData.append("file", blob, "audio.webm");
@@ -63,15 +71,15 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: formData,
   });
 
   if (!response.ok) {
-    throw new Error(`Transcription failed: ${response.statusText}`);
+    const details = await response.text().catch(() => "");
+    throw new Error(`Transcription failed (${response.status}): ${details || response.statusText}`);
   }
 
-  const text = await response.text();
-  return text;
+  return response.text();
 }

@@ -1,21 +1,12 @@
 "use client";
 
-import { Brain, Stethoscope, FileText, Pill, AlertTriangle, MessageSquare } from "lucide-react";
+import { AlertTriangle, Brain, FileText, MessageSquare, Pill, Stethoscope } from "lucide-react";
 
-interface SynthesisData {
-  motivo_consulta?: string;
-  achados_relevantes?: string[];
-  diagnosticos_suspeitos?: string[];
-  exames_pedidos?: Array<{ tipo: string; indicacao: string }>;
-  conduta?: string;
-  medicamentos_ajustados?: Array<{ nome: string; dose: string; acao: string }>;
-  sinais_de_alerta?: string[];
-  orientacoes_paciente?: string;
-}
+import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
 interface SynthesisPanelProps {
-  synthesis: SynthesisData | null;
-  onFillForm: (data: SynthesisData) => void;
+  synthesis: ConsultationAIDraft | null;
+  onFillForm: (data: ConsultationAIDraft) => void;
 }
 
 export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanelProps) {
@@ -35,31 +26,43 @@ export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanel
           </Section>
         )}
 
-        {synthesis.achados_relevantes && synthesis.achados_relevantes.length > 0 && (
+        {synthesis.queixa_principal && (
+          <Section icon={<MessageSquare className="w-4 h-4" />} title="Queixa principal">
+            <p className="text-sm text-surface-700">{synthesis.queixa_principal}</p>
+          </Section>
+        )}
+
+        {synthesis.historia_doenca_atual && (
+          <Section icon={<FileText className="w-4 h-4" />} title="História da doença atual">
+            <p className="text-sm text-surface-700 whitespace-pre-line">{synthesis.historia_doenca_atual}</p>
+          </Section>
+        )}
+
+        {synthesis.achados_relevantes.length > 0 && (
           <Section icon={<Stethoscope className="w-4 h-4" />} title="Achados relevantes">
             <ul className="list-disc list-inside text-sm text-surface-700 space-y-1">
-              {synthesis.achados_relevantes.map((item, i) => (
-                <li key={i}>{item}</li>
+              {synthesis.achados_relevantes.map((item, index) => (
+                <li key={index}>{item}</li>
               ))}
             </ul>
           </Section>
         )}
 
-        {synthesis.diagnosticos_suspeitos && synthesis.diagnosticos_suspeitos.length > 0 && (
+        {synthesis.diagnosticos_suspeitos.length > 0 && (
           <Section icon={<Stethoscope className="w-4 h-4" />} title="Diagnósticos suspeitos">
             <ul className="list-disc list-inside text-sm text-surface-700 space-y-1">
-              {synthesis.diagnosticos_suspeitos.map((item, i) => (
-                <li key={i}>{item}</li>
+              {synthesis.diagnosticos_suspeitos.map((item, index) => (
+                <li key={index}>{item}</li>
               ))}
             </ul>
           </Section>
         )}
 
-        {synthesis.exames_pedidos && synthesis.exames_pedidos.length > 0 && (
+        {synthesis.exames_pedidos.length > 0 && (
           <Section icon={<FileText className="w-4 h-4" />} title="Exames pedidos">
-            <div className="space-y-1">
-              {synthesis.exames_pedidos.map((exame, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-surface-700">
+            <div className="space-y-2">
+              {synthesis.exames_pedidos.map((exame, index) => (
+                <div key={index} className="flex items-start gap-2 text-sm text-surface-700">
                   <span className="font-medium">{exame.tipo}</span>
                   {exame.indicacao && <span className="text-surface-500">— {exame.indicacao}</span>}
                 </div>
@@ -70,27 +73,28 @@ export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanel
 
         {synthesis.conduta && (
           <Section icon={<Stethoscope className="w-4 h-4" />} title="Conduta">
-            <p className="text-sm text-surface-700">{synthesis.conduta}</p>
+            <p className="text-sm text-surface-700 whitespace-pre-line">{synthesis.conduta}</p>
           </Section>
         )}
 
-        {synthesis.medicamentos_ajustados && synthesis.medicamentos_ajustados.length > 0 && (
+        {synthesis.medicamentos_ajustados.length > 0 && (
           <Section icon={<Pill className="w-4 h-4" />} title="Medicamentos ajustados">
-            <div className="space-y-1">
-              {synthesis.medicamentos_ajustados.map((med, i) => (
-                <div key={i} className="text-sm text-surface-700">
-                  <span className="font-medium">{med.nome}</span> — {med.dose} ({med.acao})
+            <div className="space-y-2">
+              {synthesis.medicamentos_ajustados.map((medicamento, index) => (
+                <div key={index} className="text-sm text-surface-700">
+                  <span className="font-medium">{medicamento.nome}</span> — {medicamento.dose}
+                  {medicamento.acao ? ` (${medicamento.acao})` : ""}
                 </div>
               ))}
             </div>
           </Section>
         )}
 
-        {synthesis.sinais_de_alerta && synthesis.sinais_de_alerta.length > 0 && (
+        {synthesis.sinais_de_alerta.length > 0 && (
           <Section icon={<AlertTriangle className="w-4 h-4" />} title="Sinais de alerta" variant="warning">
             <ul className="list-disc list-inside text-sm text-surface-700 space-y-1">
-              {synthesis.sinais_de_alerta.map((item, i) => (
-                <li key={i}>{item}</li>
+              {synthesis.sinais_de_alerta.map((item, index) => (
+                <li key={index}>{item}</li>
               ))}
             </ul>
           </Section>
@@ -98,16 +102,22 @@ export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanel
 
         {synthesis.orientacoes_paciente && (
           <Section icon={<MessageSquare className="w-4 h-4" />} title="Orientações ao paciente">
-            <p className="text-sm text-surface-700">{synthesis.orientacoes_paciente}</p>
+            <p className="text-sm text-surface-700 whitespace-pre-line">{synthesis.orientacoes_paciente}</p>
+          </Section>
+        )}
+
+        {synthesis.trechos_suporte.length > 0 && (
+          <Section icon={<FileText className="w-4 h-4" />} title="Trechos de suporte">
+            <ul className="list-disc list-inside text-sm text-surface-700 space-y-1">
+              {synthesis.trechos_suporte.map((trecho, index) => (
+                <li key={index}>{trecho}</li>
+              ))}
+            </ul>
           </Section>
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => onFillForm(synthesis)}
-        className="mt-4 btn-secondary w-full text-xs"
-      >
+      <button type="button" onClick={() => onFillForm(synthesis)} className="mt-4 btn-secondary w-full text-xs">
         Preencher formulário com esta síntese
       </button>
     </div>

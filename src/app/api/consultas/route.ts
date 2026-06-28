@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { getServerUser } from "@/lib/auth-server";
 import { supabaseAdmin } from "@/lib/db";
 
@@ -72,6 +73,8 @@ export async function POST(req: NextRequest) {
         cid10: body.cid10 || null,
         conduta: body.conduta || null,
         orientacoes: body.orientacoes || null,
+        audio_url: body.audio_url || null,
+        transcricao_completa: body.transcricao_completa || null,
         sintese_ia: body.sintese_ia || null,
       })
       .select()
