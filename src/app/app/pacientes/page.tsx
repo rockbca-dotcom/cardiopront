@@ -202,7 +202,7 @@ export default function PacientesPage() {
                 </div>
               </div>
               <Link href={`/app/pacientes/${p.id}`} className="btn-secondary text-xs">
-                Ver detalhes
+                Detalhes
               </Link>
             </div>
           ))}
