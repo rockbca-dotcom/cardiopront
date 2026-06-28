@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +21,7 @@ export async function POST(req: NextRequest) {
     const bodyStr = JSON.stringify({ user_email: email, user_password: pw });
     const parsedBody = JSON.parse(bodyStr);
 
-    // Call PostgREST directly via fetch
+    // Call the function via PostgREST
     const restUrl = supabaseUrl + "/rest/v1/rpc/verify_user_password";
     
     const resp = await fetch(restUrl, {
@@ -41,18 +40,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Auth error: " + errBody }, { status: resp.status });
     }
 
-    const users = await resp.json();
+    const result = await resp.json();
 
-    if (!users || !users.length) {
+    if (!result || result.error || result.auth_user_id === null) {
       return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
     }
 
-    const userRecord = users[0];
+    // Handle both single result and array format
+    const userRecord = Array.isArray(result) ? result[0] : result;
 
     // Generate session token
     const sessionData = {
-      access_token: btoa(String(userRecord["auth_user_id"]) + ":" + Date.now()),
-      refresh_token: btoa("refresh:" + String(userRecord["auth_user_id"]) + ":" + Date.now()),
+      access_token: btoa(userRecord["auth_user_id"] + ":" + Date.now()),
+      refresh_token: btoa("refresh:" + userRecord["auth_user_id"] + ":" + Date.now()),
       expires_at: Math.floor(Date.now() / 1000) + 3600,
     };
 
