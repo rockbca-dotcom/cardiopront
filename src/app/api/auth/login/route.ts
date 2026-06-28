@@ -18,14 +18,18 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, anonKey);
 
-    // Build params object with password field
-    const params: Record<string, string> = {};
-    params["user_email"] = email;
-    params["user_password"] = pw;
+    // Try using the RPC function with explicit schema
+    const { data: result, error: rpcError } = await supabase.rpc("verify_user_password", {
+      user_email: email,
+      user_password: <REDACTED>
+    });
 
-    const { data: result, error: rpcError } = await supabase.rpc("verify_user_password", params);
+    if (rpcError) {
+      console.error("RPC error:", rpcError.message);
+      return NextResponse.json({ error: "Erro ao verificar credenciais: " + rpcError.message }, { status: 401 });
+    }
 
-    if (rpcError || !result || !result.length) {
+    if (!result || !result.length) {
       return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
     }
 
