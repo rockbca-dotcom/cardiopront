@@ -18,7 +18,7 @@ import {
 import type { ConsultationRecordingState } from "@/lib/consultation-media";
 
 interface Patient {
-  id: number;
+  id: string;
   nome: string;
 }
 

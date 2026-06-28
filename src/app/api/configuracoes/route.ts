@@ -18,7 +18,7 @@ export async function GET() {
 
     const { data: medico, error } = await supabaseAdmin
       .from("medicos")
-      .select("id, nome, email, crm, crm_uf, especialidade, telefone, plano, trial_fim, atualizado_em")
+      .select("id, nome, email, crm, crm_uf, especialidade, telefone, assinatura_data_url, plano, trial_fim, atualizado_em")
       .eq("auth_user_id", user.id)
       .maybeSingle();
 
@@ -64,10 +64,11 @@ export async function PUT(req: NextRequest) {
         crm_uf: payload.crm_uf,
         especialidade: payload.especialidade || null,
         telefone: payload.telefone || null,
+        assinatura_data_url: payload.assinatura_data_url || null,
         atualizado_em: new Date().toISOString(),
       })
       .eq("id", medicoAtual.id)
-      .select("id, nome, email, crm, crm_uf, especialidade, telefone, plano, trial_fim, atualizado_em")
+      .select("id, nome, email, crm, crm_uf, especialidade, telefone, assinatura_data_url, plano, trial_fim, atualizado_em")
       .single();
 
     if (error) {

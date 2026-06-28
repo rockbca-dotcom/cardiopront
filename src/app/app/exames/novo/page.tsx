@@ -116,7 +116,7 @@ export default function NovoExamePage() {
       }
     }
     alert("Exames salvos!");
-    router.push("/app/exames");
+    router.push(consultaId ? `/app/exames/${consultaId}` : "/app/exames");
   }
 
   if (loadingPatients) {

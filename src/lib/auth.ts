@@ -19,6 +19,7 @@ export interface AuthUser {
     crm_uf: string;
     especialidade?: string | null;
     telefone?: string | null;
+    assinatura_data_url?: string | null;
     plano?: string;
     trial_fim?: string | null;
   };

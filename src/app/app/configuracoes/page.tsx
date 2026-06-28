@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
-import { CheckCircle2, CreditCard, Loader2, Shield, User } from "lucide-react";
+import { CheckCircle2, CreditCard, Loader2, PenLine, Shield, User } from "lucide-react";
+
+import SignaturePad from "@/components/configuracoes/SignaturePad";
 
 interface ConfiguracoesState {
   nome: string;
@@ -10,6 +12,7 @@ interface ConfiguracoesState {
   crm_uf: string;
   especialidade: string;
   telefone: string;
+  assinatura_data_url: string;
 }
 
 interface ConfiguracoesProfile extends ConfiguracoesState {
@@ -25,6 +28,7 @@ const initialState: ConfiguracoesState = {
   crm_uf: "",
   especialidade: "",
   telefone: "",
+  assinatura_data_url: "",
 };
 
 export default function ConfiguracoesPage() {
@@ -70,6 +74,7 @@ export default function ConfiguracoesPage() {
           crm_uf: configuracoes.crm_uf || "",
           especialidade: configuracoes.especialidade || "",
           telefone: configuracoes.telefone || "",
+          assinatura_data_url: configuracoes.assinatura_data_url || "",
         });
       }
     } catch (fetchError) {
@@ -117,6 +122,7 @@ export default function ConfiguracoesPage() {
           crm_uf: configuracoes.crm_uf || "",
           especialidade: configuracoes.especialidade || "",
           telefone: configuracoes.telefone || "",
+          assinatura_data_url: configuracoes.assinatura_data_url || "",
         });
       }
 
@@ -191,15 +197,35 @@ export default function ConfiguracoesPage() {
                   <input name="telefone" value={form.telefone} onChange={handleChange} className="input-field" placeholder="(11) 99999-9999" />
                 </Field>
               </div>
+            </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
-                <p className="text-xs text-surface-500 leading-5">
-                  Ao salvar, seu cadastro é atualizado imediatamente e os próximos documentos passam a usar os novos dados.
-                </p>
-                <button type="submit" disabled={saving} className="btn-primary min-w-[180px]">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar alterações"}
-                </button>
+            <div className="card space-y-4">
+              <div className="flex items-center gap-2">
+                <PenLine className="w-5 h-5 text-primary-600" />
+                <div>
+                  <h2 className="font-semibold text-surface-900">Assinatura eletrônica</h2>
+                  <p className="text-sm text-surface-500">Desenhe sua assinatura para usar nos PDFs padronizados.</p>
+                </div>
               </div>
+
+              <SignaturePad
+                value={form.assinatura_data_url}
+                onChange={(assinatura_data_url) =>
+                  setForm((current) => ({
+                    ...current,
+                    assinatura_data_url,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
+              <p className="text-xs text-surface-500 leading-5">
+                Ao salvar, seu cadastro é atualizado imediatamente e os próximos documentos passam a usar os novos dados.
+              </p>
+              <button type="submit" disabled={saving} className="btn-primary min-w-[180px]">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar alterações"}
+              </button>
             </div>
           </form>
 

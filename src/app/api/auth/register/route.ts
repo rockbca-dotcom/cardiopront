@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         trial_fim: trialFim,
       })
       .select(
-        "id, auth_user_id, nome, email, crm, crm_uf, especialidade, telefone, plano, trial_fim",
+        "id, auth_user_id, nome, email, crm, crm_uf, especialidade, telefone, assinatura_data_url, plano, trial_fim",
       )
       .single();
 

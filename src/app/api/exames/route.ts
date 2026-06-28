@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       .select("id")
       .eq("medico_id", medico.id);
 
-    const consultaIds = consultas?.map(c => c.id) || [];
+    const consultaIds = consultas?.map((c) => c.id) || [];
 
     const { data } = await supabaseAdmin
       .from("exames")
@@ -28,7 +28,15 @@ export async function GET(req: NextRequest) {
       .in("consulta_id", consultaIds)
       .order("data_pedido", { ascending: false });
 
-    return NextResponse.json({ exames: data || [] });
+    const normalized = (data || []).map((exame) => ({
+      ...exame,
+      consulta_id: exame.consulta_id,
+      tipo_exame_nome: exame.tipos_exame?.nome || "Exame",
+      tipo_exame_categoria: exame.tipos_exame?.categoria || "outros",
+      paciente_nome: exame.pacientes?.nome || "Paciente não informado",
+    }));
+
+    return NextResponse.json({ exames: normalized });
   } catch (error) {
     console.error("Error fetching exams:", error);
     return NextResponse.json({ exames: [] });

@@ -7,6 +7,9 @@ import { useParams } from "next/navigation";
 
 import ConsultationFollowUpPanel from "@/components/consulta/ConsultationFollowUpPanel";
 import SynthesisPanel from "@/components/consulta/SynthesisPanel";
+import ConsultationPdf from "@/components/documentos/ConsultationPdf";
+import PdfDocumentActions from "@/components/documentos/PdfDocumentActions";
+import { getSession } from "@/lib/auth";
 import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
 interface ConsultationDetail {
@@ -45,6 +48,15 @@ interface ConsultationDetail {
   } | null;
 }
 
+interface DoctorProfile {
+  nome: string;
+  crm: string;
+  crmUf: string;
+  especialidade?: string | null;
+  telefone?: string | null;
+  assinatura_data_url?: string | null;
+}
+
 export default function ConsultaDetalhePage() {
   const params = useParams<{ id: string }>();
   const consultaId = useMemo(() => {
@@ -53,41 +65,79 @@ export default function ConsultaDetalhePage() {
   }, [params]);
 
   const [consulta, setConsulta] = useState<ConsultationDetail | null>(null);
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    void loadDoctor();
+  }, []);
+
+  useEffect(() => {
     if (!consultaId) return;
-
-    async function fetchConsultation() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const res = await fetch(`/api/consultas/${consultaId}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          throw new Error(data.error || "Erro ao carregar consulta");
-        }
-
-        setConsulta(data.consulta || null);
-      } catch (fetchError) {
-        const message = fetchError instanceof Error ? fetchError.message : "Erro ao carregar consulta";
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchConsultation();
+    void loadConsultation();
   }, [consultaId]);
 
-  const dateLabel = consulta ? new Date(consulta.data_consulta).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
-  const timeLabel = consulta ? new Date(consulta.data_consulta).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+  async function loadDoctor() {
+    try {
+      const session = await getSession();
+      if (session?.user?.medico) {
+        setDoctor({
+          nome: session.user.medico.nome,
+          crm: session.user.medico.crm,
+          crmUf: session.user.medico.crm_uf,
+          especialidade: session.user.medico.especialidade,
+          telefone: session.user.medico.telefone,
+          assinatura_data_url: session.user.medico.assinatura_data_url,
+        });
+      } else {
+        setDoctor(null);
+      }
+    } catch (profileError) {
+      console.error("Error loading doctor profile:", profileError);
+      setDoctor(null);
+    }
+  }
+
+  async function loadConsultation() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/consultas/${consultaId}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao carregar consulta");
+      }
+
+      setConsulta(data.consulta || null);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Erro ao carregar consulta";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const dateLabel = consulta
+    ? new Date(consulta.data_consulta).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+  const timeLabel = consulta
+    ? new Date(consulta.data_consulta).toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+  const pdfDocument = consulta && doctor ? <ConsultationPdf doctor={doctor} consultation={consulta} /> : null;
 
   return (
     <div className="space-y-6">
@@ -100,11 +150,19 @@ export default function ConsultaDetalhePage() {
           <p className="text-surface-600 mt-1">Áudio, transcrição, síntese e campos clínicos em um só lugar.</p>
         </div>
 
-        {consulta && (
-          <Link href="/app/consultas/nova" className="btn-primary">
-            <FileText className="w-4 h-4" /> Nova consulta
-          </Link>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {pdfDocument && consulta && (
+            <PdfDocumentActions
+              document={pdfDocument}
+              fileName={`consulta-${consulta.id}-${dateLabel || "documento"}.pdf`}
+            />
+          )}
+          {consulta && (
+            <Link href="/app/consultas/nova" className="btn-primary">
+              <FileText className="w-4 h-4" /> Nova consulta
+            </Link>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -210,12 +268,8 @@ export default function ConsultaDetalhePage() {
 
                 {consulta.transcricao_completa ? (
                   <details className="rounded-xl border border-surface-200 bg-surface-50 px-4 py-3">
-                    <summary className="cursor-pointer text-sm font-medium text-surface-700">
-                      Abrir transcrição integral
-                    </summary>
-                    <p className="mt-3 text-sm text-surface-700 whitespace-pre-line leading-6">
-                      {consulta.transcricao_completa}
-                    </p>
+                    <summary className="cursor-pointer text-sm font-medium text-surface-700">Abrir transcrição integral</summary>
+                    <p className="mt-3 text-sm text-surface-700 whitespace-pre-line leading-6">{consulta.transcricao_completa}</p>
                   </details>
                 ) : (
                   <div className="rounded-xl border border-dashed border-surface-200 bg-surface-50 p-4 text-sm text-surface-500">
@@ -260,13 +314,13 @@ export default function ConsultaDetalhePage() {
   );
 }
 
-function MetricCard({ label, value, subvalue, tone = "neutral" }: { label: string; value: string | number; subvalue?: string; tone?: "neutral" | "green" }) {
-  const toneClasses = tone === "green" ? "border-emerald-200 bg-emerald-50" : "border-surface-200 bg-surface-50";
+function MetricCard({ label, value, subvalue, tone = "neutral" }: { label: string; value: string; subvalue?: string; tone?: "neutral" | "green" }) {
+  const toneClass = tone === "green" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-surface-200 bg-surface-50 text-surface-900";
 
   return (
-    <div className={`card ${toneClasses}`}>
+    <div className={`card border ${toneClass}`}>
       <p className="text-xs uppercase tracking-wide text-surface-500">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-surface-900">{value}</p>
+      <p className="mt-2 text-lg font-semibold text-surface-900 break-words">{value}</p>
       {subvalue && <p className="mt-1 text-xs text-surface-500">{subvalue}</p>}
     </div>
   );
@@ -274,9 +328,9 @@ function MetricCard({ label, value, subvalue, tone = "neutral" }: { label: strin
 
 function InfoField({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className={wide ? "md:col-span-2" : ""}>
+    <div className={wide ? "md:col-span-2 rounded-xl border border-surface-200 bg-surface-50 p-3" : "rounded-xl border border-surface-200 bg-surface-50 p-3"}>
       <p className="text-xs uppercase tracking-wide text-surface-500">{label}</p>
-      <p className="mt-1 whitespace-pre-line leading-6 text-surface-800">{value}</p>
+      <p className="mt-1 text-sm text-surface-800 whitespace-pre-line leading-6">{value}</p>
     </div>
   );
 }
@@ -285,24 +339,23 @@ function MiniVital({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-surface-200 bg-surface-50 p-3 text-center">
       <p className="text-xs uppercase tracking-wide text-surface-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-surface-900">{value}</p>
+      <p className="mt-1 text-sm font-medium text-surface-900">{value}</p>
     </div>
   );
 }
 
-function formatSexo(sexo?: string | null) {
-  if (!sexo) return "—";
-  if (sexo === "M") return "Masculino";
-  if (sexo === "F") return "Feminino";
-  return "Outro";
-}
-
-function formatBloodPressure(sistolica: number | null, diastolica: number | null) {
-  if (!sistolica && !diastolica) return "—";
-  return `${sistolica ?? "—"}/${diastolica ?? "—"}`;
+function formatBloodPressure(systolic: number | null, diastolic: number | null) {
+  if (systolic === null || diastolic === null) return "—";
+  return `${systolic}/${diastolic} mmHg`;
 }
 
 function formatNumberWithUnit(value: number | null, unit: string) {
-  if (value === null || value === undefined) return "—";
-  return `${value} ${unit}`;
+  return value === null ? "—" : `${value} ${unit}`;
+}
+
+function formatSexo(value: string | null | undefined) {
+  if (value === "M") return "Masculino";
+  if (value === "F") return "Feminino";
+  if (value === "O") return "Outro";
+  return value || "—";
 }

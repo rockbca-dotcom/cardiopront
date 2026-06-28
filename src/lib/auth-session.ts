@@ -17,6 +17,7 @@ export type MedicoAuthRow = {
   crm_uf: string;
   especialidade: string | null;
   telefone: string | null;
+  assinatura_data_url?: string | null;
   plano: "trial" | "essencial" | "profissional" | "clinica";
   trial_fim: string | null;
   senha_hash?: string | null;
@@ -77,6 +78,7 @@ export function formatAuthUser(medico: MedicoAuthRow) {
     crmUf: medico.crm_uf,
     especialidade: medico.especialidade,
     telefone: medico.telefone,
+    assinatura_data_url: medico.assinatura_data_url ?? null,
     plano: medico.plano,
     trial_fim: medico.trial_fim,
     medico: {
@@ -88,6 +90,7 @@ export function formatAuthUser(medico: MedicoAuthRow) {
       crm_uf: medico.crm_uf,
       especialidade: medico.especialidade,
       telefone: medico.telefone,
+      assinatura_data_url: medico.assinatura_data_url ?? null,
       plano: medico.plano,
       trial_fim: medico.trial_fim,
     },

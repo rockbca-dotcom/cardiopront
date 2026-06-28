@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       .select("id")
       .eq("medico_id", medico.id);
 
-    const consultaIds = consultas?.map(c => c.id) || [];
+    const consultaIds = consultas?.map((c) => c.id) || [];
 
     const { data } = await supabaseAdmin
       .from("prescricoes")
@@ -28,7 +28,12 @@ export async function GET(req: NextRequest) {
       .in("consulta_id", consultaIds)
       .order("data_prescricao", { ascending: false });
 
-    return NextResponse.json({ prescricoes: data || [] });
+    const normalized = (data || []).map((prescricao) => ({
+      ...prescricao,
+      paciente_nome: prescricao.pacientes?.nome || "Paciente não informado",
+    }));
+
+    return NextResponse.json({ prescricoes: normalized });
   } catch (error) {
     console.error("Error fetching prescriptions:", error);
     return NextResponse.json({ prescricoes: [] });

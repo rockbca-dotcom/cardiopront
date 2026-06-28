@@ -1,103 +1,112 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { Printer, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
+import PdfDocumentActions from "@/components/documentos/PdfDocumentActions";
+import PrescriptionPdf, {
+  type PrescriptionDocumentConsultation,
+  type PrescriptionDocumentItem,
+} from "@/components/documentos/PrescriptionPdf";
 import { getSession } from "@/lib/auth";
-import PrescriptionPdf from "@/lib/generatePrescriptionPdf";
-
-interface PrescriptionItem {
-  medicamento: string;
-  principio_ativo: string;
-  dose: string | null;
-  unidade: string | null;
-  frequencia: string | null;
-  via: string | null;
-  posologia: string | null;
-  advertencias: string | null;
-}
 
 interface PrintPrescriptionProps {
   prescriptionId: string;
   patientNome: string;
-  items: PrescriptionItem[];
+  items: Array<{
+    medicamento: string;
+    principio_ativo: string;
+    dose: string | null;
+    unidade: string | null;
+    frequencia: string | null;
+    via: string | null;
+    posologia: string | null;
+    advertencias: string | null;
+  }>;
 }
 
-export default function PrintPrescription({
-  prescriptionId,
-  patientNome,
-  items,
-}: PrintPrescriptionProps) {
-  const [doctor, setDoctor] = useState<{
-    nome: string;
-    crm: string;
-    crmUf: string;
-    especialidade?: string;
-  } | null>(null);
+interface DoctorProfile {
+  nome: string;
+  crm: string;
+  crmUf: string;
+  especialidade?: string | null;
+  telefone?: string | null;
+  assinatura_data_url?: string | null;
+}
+
+interface PrescriptionBundleResponse {
+  consulta: PrescriptionDocumentConsultation;
+  prescricoes: Array<PrescriptionDocumentItem & { data_prescricao?: string | null; validade_dias?: number | null }>;
+}
+
+export default function PrintPrescription({ prescriptionId }: PrintPrescriptionProps) {
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
+  const [bundle, setBundle] = useState<PrescriptionBundleResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void fetchDoctorData();
-  }, []);
+    void loadBundle();
+  }, [prescriptionId]);
 
-  async function fetchDoctorData() {
+  async function loadBundle() {
+    setLoading(true);
+
     try {
-      const session = await getSession();
-      const medico = session?.user?.medico;
+      const [session, response] = await Promise.all([
+        getSession(),
+        fetch(`/api/prescricao/${prescriptionId}`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
 
-      if (medico) {
-        setDoctor({
-          nome: medico.nome,
-          crm: medico.crm,
-          crmUf: medico.crm_uf,
-          especialidade: medico.especialidade,
-        });
-      } else {
-        setDoctor(null);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao carregar prescrição");
       }
+
+      setDoctor(
+        session?.user?.medico
+          ? {
+              nome: session.user.medico.nome,
+              crm: session.user.medico.crm,
+              crmUf: session.user.medico.crm_uf,
+              especialidade: session.user.medico.especialidade,
+              telefone: session.user.medico.telefone,
+              assinatura_data_url: session.user.medico.assinatura_data_url,
+            }
+          : null,
+      );
+      setBundle(data as PrescriptionBundleResponse);
     } catch (error) {
-      console.error("Error loading doctor data:", error);
+      console.error("Error loading prescription bundle:", error);
+      setBundle(null);
       setDoctor(null);
     } finally {
       setLoading(false);
     }
   }
 
+  const fileName = useMemo(() => {
+    const date = bundle?.prescricoes?.[0]?.data_prescricao || new Date().toISOString().split("T")[0];
+    return `prescricao-${prescriptionId}-${date}.pdf`;
+  }, [bundle?.prescricoes, prescriptionId]);
+
   if (loading) {
     return (
-      <button className="btn-secondary text-sm" disabled>
-        <Loader2 className="w-4 h-4 animate-spin" />
+      <button className="btn-secondary text-sm inline-flex items-center gap-2" disabled>
+        Gerando PDF...
       </button>
     );
   }
 
-  if (!doctor) {
+  if (!doctor || !bundle?.consulta || !bundle.prescricoes.length) {
     return null;
   }
 
-  const pdfData = {
-    doctor,
-    patient: { nome: patientNome },
-    prescriptions: items,
-  };
-
   return (
-    <PDFDownloadLink
-      document={<PrescriptionPdf {...pdfData} />}
-      fileName={`receita-${prescriptionId}-${new Date().toISOString().split("T")[0]}.pdf`}
-      className="btn-secondary text-sm inline-flex items-center gap-2"
-    >
-      {({ loading }) =>
-        loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <>
-            <Printer className="w-4 h-4" />
-            Imprimir
-          </>
-        )
-      }
-    </PDFDownloadLink>
+    <PdfDocumentActions
+      document={<PrescriptionPdf doctor={doctor} consultation={bundle.consulta} prescriptions={bundle.prescricoes} />}
+      fileName={fileName}
+    />
   );
 }

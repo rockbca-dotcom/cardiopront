@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const { data: medico, error } = await supabaseAdmin
       .from("medicos")
       .select(
-        "id, auth_user_id, nome, email, crm, crm_uf, especialidade, telefone, plano, trial_fim, senha_hash",
+        "id, auth_user_id, nome, email, crm, crm_uf, especialidade, telefone, assinatura_data_url, plano, trial_fim, senha_hash",
       )
       .eq("email", email)
       .maybeSingle();

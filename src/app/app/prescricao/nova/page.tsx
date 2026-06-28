@@ -224,7 +224,7 @@ export default function NovaPrescricaoPage() {
         }
       }
       alert("Prescricao salva!");
-      router.push("/app/prescricao");
+      router.push(consultaId ? `/app/prescricao/${consultaId}` : "/app/prescricao");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao salvar");
     } finally {

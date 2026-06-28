@@ -14,7 +14,7 @@ export async function getServerUser() {
   const { data, error } = await supabaseAdmin
     .from("medicos")
     .select(
-      "id, auth_user_id, nome, email, crm, crm_uf, especialidade, telefone, plano, trial_fim",
+      "id, auth_user_id, nome, email, crm, crm_uf, especialidade, telefone, assinatura_data_url, plano, trial_fim",
     )
     .eq("auth_user_id", authUserId)
     .maybeSingle();

@@ -9,7 +9,7 @@ import ConsultationForm from "@/components/consulta/ConsultationForm";
 import ScoreCalculator from "@/components/consulta/ScoreCalculator";
 
 interface Patient {
-  id: number;
+  id: string;
   nome: string;
 }
 
@@ -20,7 +20,7 @@ export default function NovaConsultaPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchPatients();
+    void fetchPatients();
   }, []);
 
   async function fetchPatients() {
@@ -55,12 +55,17 @@ export default function NovaConsultaPage() {
       body: JSON.stringify(data),
     });
 
+    const responseData = await res.json().catch(() => ({}));
+
     if (res.ok) {
       alert("Consulta salva com sucesso!");
-      router.push("/app/consultas");
+      if (responseData?.consulta?.id) {
+        router.push(`/app/consultas/${responseData.consulta.id}`);
+      } else {
+        router.push("/app/consultas");
+      }
     } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error || "Erro ao salvar consulta");
+      alert(responseData.error || "Erro ao salvar consulta");
     }
   }
 
