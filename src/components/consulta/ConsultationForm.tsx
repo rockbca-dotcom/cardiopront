@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { Save } from "lucide-react";
 
 import ConsultationPrefillPanel from "./ConsultationPrefillPanel";
@@ -14,6 +15,7 @@ import {
   type ConsultationFormValues,
   type ConsultationPrefillSuggestion,
 } from "@/lib/consultation-prefill";
+import type { ConsultationRecordingState } from "@/lib/consultation-media";
 
 interface Patient {
   id: number;
@@ -49,10 +51,12 @@ const initialForm: ConsultationFormValues = {
 export default function ConsultationForm({ patients, onSave }: ConsultationFormProps) {
   const [transcription, setTranscription] = useState("");
   const [synthesis, setSynthesis] = useState<ConsultationAIDraft | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [recordingState, setRecordingState] = useState<ConsultationRecordingState>("idle");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<ConsultationFormValues>(initialForm);
 
-  function handleChange(event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+  function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
   }
@@ -71,8 +75,14 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
     setForm((current) => applyConsultationPrefill(current, buildConsultationPrefillSuggestions(synthesis)));
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    if (recordingState !== "idle") {
+      alert("Aguarde a gravação terminar de ser processada antes de salvar a consulta.");
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -86,6 +96,7 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
         peso_kg: form.peso_kg ? parseFloat(form.peso_kg) : null,
         altura_cm: form.altura_cm ? parseFloat(form.altura_cm) : null,
         temp_celsius: form.temp_celsius ? parseFloat(form.temp_celsius) : null,
+        audio_url: audioUrl,
         transcricao_completa: transcription.trim() || null,
         sintese_ia: synthesis ?? null,
       });
@@ -94,12 +105,51 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
     }
   }
 
+  const audioPersisted = Boolean(audioUrl);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Recording Section */}
       <div className="card">
-        <h2 className="font-semibold text-surface-900 mb-4">Gravação da consulta</h2>
-        <RecordingButton onTranscription={(text) => setTranscription(text)} onSynthesis={handleSynthesis} />
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-semibold text-surface-900">Gravação da consulta</h2>
+            <p className="text-sm text-surface-500 mt-1">Grave o atendimento e deixe a IA estruturar o texto para revisão.</p>
+          </div>
+          {audioPersisted && (
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
+              Áudio salvo na nuvem
+            </span>
+          )}
+        </div>
+
+        <RecordingButton
+          onTranscription={(text) => setTranscription(text)}
+          onSynthesis={handleSynthesis}
+          onAudioUrl={setAudioUrl}
+          onStateChange={setRecordingState}
+        />
+
+        {audioUrl && (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-sm font-semibold text-emerald-800">Arquivo de áudio anexado</p>
+                <p className="text-xs text-emerald-700 mt-1">Ele será salvo junto com a consulta.</p>
+              </div>
+              <a
+                href={audioUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                Abrir arquivo
+              </a>
+            </div>
+            <audio controls src={audioUrl} className="mt-3 w-full" />
+          </div>
+        )}
+
         {transcription && (
           <details className="mt-4 rounded-lg border border-surface-200 bg-surface-50 px-4 py-3">
             <summary className="cursor-pointer text-sm font-medium text-surface-700">
@@ -276,9 +326,9 @@ export default function ConsultationForm({ patients, onSave }: ConsultationFormP
 
       {/* Submit */}
       <div className="flex justify-end">
-        <button type="submit" disabled={saving} className="btn-primary px-8 h-11">
+        <button type="submit" disabled={saving || recordingState !== "idle"} className="btn-primary px-8 h-11 disabled:opacity-60">
           <Save className="w-4 h-4" />
-          {saving ? "Salvando..." : "Salvar consulta"}
+          {saving ? "Salvando..." : recordingState !== "idle" ? "Aguardando áudio..." : "Salvar consulta"}
         </button>
       </div>
     </form>

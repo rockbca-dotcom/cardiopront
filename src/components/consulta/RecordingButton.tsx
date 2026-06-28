@@ -4,31 +4,50 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, Square } from "lucide-react";
 
 import type { ConsultationAIDraft } from "@/lib/consultation-ai";
+import {
+  type ConsultationRecordingState,
+  uploadConsultationAudio,
+} from "@/lib/consultation-media";
 
 interface RecordingButtonProps {
   onTranscription: (text: string) => void;
   onSynthesis: (synthesis: ConsultationAIDraft) => void;
+  onAudioUrl?: (audioUrl: string | null) => void;
+  onStateChange?: (state: ConsultationRecordingState) => void;
 }
 
-export default function RecordingButton({ onTranscription, onSynthesis }: RecordingButtonProps) {
+export default function RecordingButton({
+  onTranscription,
+  onSynthesis,
+  onAudioUrl,
+  onStateChange,
+}: RecordingButtonProps) {
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
   async function startRecording() {
     try {
       setError(null);
+      setWarning(null);
+      onAudioUrl?.(null);
+      onStateChange?.("recording");
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -41,9 +60,28 @@ export default function RecordingButton({ onTranscription, onSynthesis }: Record
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        setRecording(false);
         setProcessing(true);
+        onStateChange?.("processing");
 
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType || "audio/webm" });
+        chunksRef.current = [];
+
+        if (blob.size === 0) {
+          setError("Nenhum áudio foi capturado.");
+          setProcessing(false);
+          onStateChange?.("idle");
+          return;
+        }
+
+        const audioUploadPromise = uploadConsultationAudio(blob, { mimeType: blob.type })
+          .then(({ publicUrl }) => publicUrl)
+          .catch((uploadError) => {
+            console.error("Error uploading consultation audio:", uploadError);
+            setWarning("A consulta foi transcrita, mas o áudio não pôde ser salvo na nuvem.");
+            return null;
+          });
 
         try {
           const formData = new FormData();
@@ -90,7 +128,10 @@ export default function RecordingButton({ onTranscription, onSynthesis }: Record
           setError(message);
           console.error("Error processing audio:", processingError);
         } finally {
+          const audioUrl = await audioUploadPromise;
+          onAudioUrl?.(audioUrl);
           setProcessing(false);
+          onStateChange?.("idle");
         }
       };
 
@@ -104,6 +145,9 @@ export default function RecordingButton({ onTranscription, onSynthesis }: Record
     } catch (startError) {
       const message = startError instanceof Error ? startError.message : "Não foi possível acessar o microfone";
       setError(message.includes("permission") ? "Permissão de microfone negada." : "Não foi possível acessar o microfone. Verifique as permissões.");
+      setRecording(false);
+      setProcessing(false);
+      onStateChange?.("idle");
       console.error("Error starting recording:", startError);
     }
   }
@@ -127,8 +171,13 @@ export default function RecordingButton({ onTranscription, onSynthesis }: Record
       <div className="space-y-3">
         <div className="flex items-center gap-3 p-4 bg-primary-50 rounded-lg border border-primary-200">
           <Loader2 className="w-5 h-5 text-primary-600 animate-spin" />
-          <span className="text-sm text-primary-700">Processando áudio...</span>
+          <span className="text-sm text-primary-700">Transcrevendo, sintetizando e salvando o áudio...</span>
         </div>
+        {warning && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            {warning}
+          </div>
+        )}
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {error}
@@ -155,16 +204,22 @@ export default function RecordingButton({ onTranscription, onSynthesis }: Record
         <div>
           <p className="text-sm font-medium text-surface-900">
             {recording
-              ? `Gravando ${formatDuration(duration)} — Clique para parar`
+              ? `Gravando ${formatDuration(duration)} — clique para parar`
               : "Clique para iniciar gravação da consulta"}
           </p>
           <p className="text-xs text-surface-500 mt-0.5">
             {recording
-              ? "A IA transcreverá e sintetizará automaticamente"
+              ? "A transcrição e o upload do áudio serão feitos automaticamente"
               : "A gravação é processada com a sessão autenticada do usuário"}
           </p>
         </div>
       </div>
+
+      {warning && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          {warning}
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
