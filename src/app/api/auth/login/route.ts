@@ -18,17 +18,32 @@ export async function POST(req: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-    const supabase = createClient(supabaseUrl, anonKey);
+    // Build body using JSON.parse to avoid JSX parsing
+    const bodyStr = JSON.stringify({ user_email: email, user_password: pw });
+    const parsedBody = JSON.parse(bodyStr);
 
-    // Build params using Object.defineProperty to avoid JSX parsing
-    const params = {} as Record<string, string>;
-    Object.defineProperty(params, "user_email", { value: email, enumerable: true });
-    Object.defineProperty(params, "user_password", { value: pw, enumerable: true });
+    // Call PostgREST directly via fetch
+    const restUrl = supabaseUrl + "/rest/v1/rpc/verify_user_password";
+    
+    const resp = await fetch(restUrl, {
+      method: "POST",
+      headers: {
+        "apikey": anonKey,
+        "Authorization": "Bearer " + anonKey,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+      },
+      body: JSON.stringify(parsedBody),
+    });
 
-    // Verify password and get user data
-    const { data: users, error: rpcError } = await supabase.rpc("verify_user_password", params);
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      return NextResponse.json({ error: "Auth error: " + errBody }, { status: resp.status });
+    }
 
-    if (rpcError || !users || !users.length) {
+    const users = await resp.json();
+
+    if (!users || !users.length) {
       return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
     }
 
@@ -54,6 +69,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Login exception:", error);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro interno" },
+      { status: 500 }
+    );
   }
 }
