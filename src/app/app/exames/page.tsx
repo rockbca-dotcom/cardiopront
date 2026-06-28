@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Calendar, CheckCircle, Clock, FileText, AlertCircle, Microscope, User } from "lucide-react";
 import Link from "next/link";
 
+import PrintExam from "@/components/exames/PrintExam";
+
 interface Exame {
   id: string;
   consulta_id: string;
@@ -102,9 +104,15 @@ export default function ExamesPage() {
                   </div>
                 </div>
 
-                <Link href={`/app/exames/${group.consultaId}`} className="btn-secondary text-sm inline-flex items-center gap-2 self-start">
-                  <User className="w-4 h-4" /> Detalhes
-                </Link>
+                <div className="flex flex-col items-start gap-2 self-start lg:items-end">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-surface-500">PDF / impressão</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PrintExam consultationId={group.consultaId} />
+                    <Link href={`/app/exames/${group.consultaId}`} className="btn-secondary text-sm inline-flex items-center gap-2">
+                      <User className="w-4 h-4" /> Detalhes
+                    </Link>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">

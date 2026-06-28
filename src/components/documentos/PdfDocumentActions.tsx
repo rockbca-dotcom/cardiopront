@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { PDFDownloadLink, pdf } from "@react-pdf/renderer";
 import { Download, Loader2, Printer } from "lucide-react";
-import type { DocumentProps } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 
 interface PdfDocumentActionsProps {
-  document: ReactElement<DocumentProps>;
+  document: ReactElement;
   fileName: string;
   downloadLabel?: string;
   printLabel?: string;
@@ -26,7 +25,7 @@ export default function PdfDocumentActions({
   async function handlePrint() {
     setPrinting(true);
     try {
-      const blob = await pdf(document).toBlob();
+      const blob = await pdf(document as any).toBlob();
       const url = URL.createObjectURL(blob);
       const win = window.open(url, "_blank", "noopener,noreferrer");
 
@@ -58,7 +57,7 @@ export default function PdfDocumentActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <PDFDownloadLink document={document} fileName={fileName} className={className}>
+      <PDFDownloadLink document={document as any} fileName={fileName} className={className}>
         {({ loading }) =>
           loading ? (
             <>

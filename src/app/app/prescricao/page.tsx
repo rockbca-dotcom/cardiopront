@@ -103,24 +103,27 @@ export default function PrescricoesPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <PrintPrescription
-                    prescriptionId={group.consultaId}
-                    patientNome={group.paciente}
-                    items={group.items.map((p) => ({
-                      medicamento: p.medicamento,
-                      principio_ativo: p.principio_ativo || p.medicamento,
-                      dose: p.dose,
-                      unidade: p.unidade,
-                      frequencia: p.frequencia,
-                      via: p.via,
-                      posologia: p.posologia,
-                      advertencias: p.advertencias,
-                    }))}
-                  />
-                  <Link href={`/app/prescricao/${group.consultaId}`} className="btn-secondary text-sm inline-flex items-center gap-2">
-                    <User className="w-4 h-4" /> Detalhes
-                  </Link>
+                <div className="flex flex-col items-start gap-2 lg:items-end">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-surface-500">PDF / impressão</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PrintPrescription
+                      prescriptionId={group.consultaId}
+                      patientNome={group.paciente}
+                      items={group.items.map((p) => ({
+                        medicamento: p.medicamento,
+                        principio_ativo: p.principio_ativo || p.medicamento,
+                        dose: p.dose,
+                        unidade: p.unidade,
+                        frequencia: p.frequencia,
+                        via: p.via,
+                        posologia: p.posologia,
+                        advertencias: p.advertencias,
+                      }))}
+                    />
+                    <Link href={`/app/prescricao/${group.consultaId}`} className="btn-secondary text-sm inline-flex items-center gap-2">
+                      <User className="w-4 h-4" /> Detalhes
+                    </Link>
+                  </div>
                 </div>
               </div>
 

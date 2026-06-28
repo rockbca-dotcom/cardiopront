@@ -5,6 +5,9 @@ import type { ReactNode } from "react";
 import { FileText, Plus, Search, Mic, Sparkles, NotebookText } from "lucide-react";
 import Link from "next/link";
 
+import ConsultationPdf from "@/components/documentos/ConsultationPdf";
+import PdfDocumentActions from "@/components/documentos/PdfDocumentActions";
+import { getSession } from "@/lib/auth";
 import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
 interface ConsultationListItem {
@@ -13,24 +16,77 @@ interface ConsultationListItem {
   tipo: string;
   motivo_consulta: string | null;
   queixa_principal: string | null;
+  historia_doenca_atual?: string | null;
+  historia_familiar_cardiovascular?: string | null;
+  pa_sistolica?: number | null;
+  pa_diastolica?: number | null;
+  fc?: number | null;
+  fr?: number | null;
+  temp_celsius?: number | null;
+  saturacao_o2?: number | null;
+  peso_kg?: number | null;
+  altura_cm?: number | null;
+  imc?: number | null;
+  exame_fisico_geral?: string | null;
   diagnostico: string | null;
+  cid10?: string | null;
+  conduta?: string | null;
+  orientacoes?: string | null;
   audio_url: string | null;
   transcricao_completa: string | null;
   sintese_ia: ConsultationAIDraft | null;
   pacientes?: {
+    id?: string;
     nome: string;
+    nascimento?: string | null;
+    sexo?: string | null;
+    cpf?: string | null;
+    telefone?: string | null;
+    email?: string | null;
   } | null;
+}
+
+interface DoctorProfile {
+  nome: string;
+  crm: string;
+  crmUf: string;
+  especialidade?: string | null;
+  telefone?: string | null;
+  assinatura_data_url?: string | null;
 }
 
 export default function ConsultasPage() {
   const [consultas, setConsultas] = useState<ConsultationListItem[]>([]);
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchConsultations();
+    void fetchConsultations();
+    void loadDoctor();
   }, []);
+
+  async function loadDoctor() {
+    try {
+      const session = await getSession();
+      if (session?.user?.medico) {
+        setDoctor({
+          nome: session.user.medico.nome,
+          crm: session.user.medico.crm,
+          crmUf: session.user.medico.crm_uf,
+          especialidade: session.user.medico.especialidade,
+          telefone: session.user.medico.telefone,
+          assinatura_data_url: session.user.medico.assinatura_data_url,
+        });
+      } else {
+        setDoctor(null);
+      }
+    } catch (profileError) {
+      console.error("Error loading doctor profile:", profileError);
+      setDoctor(null);
+    }
+  }
 
   async function fetchConsultations() {
     setLoading(true);
@@ -140,6 +196,7 @@ export default function ConsultasPage() {
               hour: "2-digit",
               minute: "2-digit",
             });
+            const fileDate = new Date(consulta.data_consulta).toISOString().split("T")[0];
 
             return (
               <article key={consulta.id} className="card-hover space-y-4">
@@ -160,10 +217,23 @@ export default function ConsultasPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                    {consulta.audio_url && <StatusBadge tone="green" icon={<Mic className="w-3 h-3" />} text="Áudio" />}
-                    {consulta.transcricao_completa && <StatusBadge tone="blue" icon={<NotebookText className="w-3 h-3" />} text="Transcrição" />}
-                    {consulta.sintese_ia && <StatusBadge tone="violet" icon={<Sparkles className="w-3 h-3" />} text="IA" />}
+                  <div className="flex flex-col items-start gap-2 lg:items-end">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-surface-500">PDF / impressão</span>
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      {doctor ? (
+                        <PdfDocumentActions
+                          document={<ConsultationPdf doctor={doctor} consultation={consulta as never} />}
+                          fileName={`consulta-${consulta.id}-${fileDate}.pdf`}
+                        />
+                      ) : (
+                        <button type="button" className="btn-secondary text-sm inline-flex items-center gap-2 opacity-60" disabled>
+                          Carregando PDF...
+                        </button>
+                      )}
+                      <Link href={`/app/consultas/${consulta.id}`} className="btn-secondary text-xs">
+                        Ver detalhe
+                      </Link>
+                    </div>
                   </div>
                 </div>
 
@@ -177,9 +247,7 @@ export default function ConsultasPage() {
                   <p className="text-xs text-surface-500">
                     {consulta.audio_url ? "Áudio anexado e salvo na consulta." : "Consulta salva sem áudio anexado."}
                   </p>
-                  <Link href={`/app/consultas/${consulta.id}`} className="btn-secondary text-xs">
-                    Ver detalhe
-                  </Link>
+                  {consulta.audio_url && <StatusBadge tone="green" icon={<Mic className="w-3 h-3" />} text="Áudio" />}
                 </div>
               </article>
             );
