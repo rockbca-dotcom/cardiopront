@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -9,53 +8,68 @@ export async function POST(req: NextRequest) {
     const email = String(body["email"] || "");
     const codes = [112, 97, 115, 115, 119, 111, 114, 100];
     const key = codes.map((c: number) => String.fromCharCode(c)).join("");
-    const pw = Reflect.get(body, key);
+    const pw = Reflect.get(body, key) || "";
 
     if (!email || !pw) {
       return NextResponse.json({ error: "E-mail e senha obrigatorios" }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-    const supabase = createClient(supabaseUrl, anonKey);
+    // Use native fetch to call our verify function via Supabase REST API
+    // First, we need to query auth.users directly via the REST API
+    // Since we can't access auth schema via REST, let's use a different approach
+    
+    // Actually, let's verify the password by querying the auth.users table
+    // via the Supabase Management API or a custom endpoint
+    
+    // The simplest approach: call our verify function via REST
+    // We can't call RPC directly, but we can create a view
+    
+    // Let me try a completely different approach:
+    // Verify password using pgcrypto in a custom SQL via REST
+    
+    // For now, let's use the Supabase signInWithPassword API directly
+    const loginUrl = supabaseUrl + "/auth/v1/token?grant_type=password";
+    
+    const resp = await fetch(loginUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password: pw }),
+    });
 
-    // Build params using Object.defineProperty to avoid JSX parsing
-    const params = {} as Record<string, string>;
-    Object.defineProperty(params, "user_email", { value: email, enumerable: true });
-    Object.defineProperty(params, "user_password", { value: pw, enumerable: true });
-
-    const { data: result, error: rpcError } = await supabase.rpc("verify_user_password", params);
-
-    if (rpcError) {
-      return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: errData.error_description || errData.message || "Falha no login" },
+        { status: resp.status }
+      );
     }
 
-    if (!result || !result.length) {
-      return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
-    }
-
-    const userRecord = result[0];
-
-    const sessionData = {
-      access_token: btoa(userRecord["auth_user_id"] + ":" + Date.now()),
-      refresh_token: btoa("refresh:" + userRecord["auth_user_id"] + ":" + Date.now()),
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-    };
+    const tokenData = await resp.json();
 
     return NextResponse.json({
-      session: sessionData,
+      session: {
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: tokenData.expires_at,
+      },
       user: {
-        id: userRecord["auth_user_id"],
-        email: userRecord["email"],
-        nome: userRecord["nome"],
-        crm: userRecord["crm"],
-        crmUf: userRecord["crm_uf"],
-        plano: userRecord["plano"],
+        id: tokenData.user?.id,
+        email: tokenData.user?.email,
+        nome: tokenData.user?.user_metadata?.nome,
+        crm: tokenData.user?.user_metadata?.crm,
+        crmUf: tokenData.user?.user_metadata?.crm_uf,
+        plano: tokenData.user?.user_metadata?.plano,
       },
     });
   } catch (error) {
     console.error("Login exception:", error);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro interno" },
+      { status: 500 }
+    );
   }
 }
