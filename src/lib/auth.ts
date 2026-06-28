@@ -1,50 +1,129 @@
 "use client";
 
-import { supabase } from "./db";
-
 export interface AuthUser {
   id: string;
   email: string;
   nome: string;
   crm: string;
   crmUf: string;
-  plano: string;
+  especialidade?: string | null;
+  telefone?: string | null;
+  plano?: string;
+  trial_fim?: string | null;
+  medico?: {
+    id: string;
+    auth_user_id: string;
+    nome: string;
+    email: string;
+    crm: string;
+    crm_uf: string;
+    especialidade?: string | null;
+    telefone?: string | null;
+    plano?: string;
+    trial_fim?: string | null;
+  };
 }
 
-export async function signUp(nome: string, email: string, password: string, crm: string, crmUf: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { nome, crm, crm_uf: crmUf },
-    },
+type AuthResponse = {
+  user: AuthUser;
+  message?: string;
+};
+
+function cacheToken(userId?: string | null) {
+  if (typeof window === "undefined" || !userId) return;
+  localStorage.setItem("token", userId);
+}
+
+function clearToken() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("token");
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    credentials: "include",
+    cache: "no-store",
+    ...init,
   });
 
-  if (error) throw new Error(error.message);
+  const raw = await res.text();
+  let data: any = {};
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = { message: raw };
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || data.message || "Erro de conexão");
+  }
+
+  return data as T;
+}
+
+export async function signUp(
+  nome: string,
+  email: string,
+  password: string,
+  crm: string,
+  crmUf: string,
+) {
+  const data = await requestJson<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      nome,
+      email,
+      password,
+      crm,
+      crm_uf: crmUf,
+    }),
+  });
+
+  cacheToken(data.user?.id);
   return data;
 }
 
 export async function signIn(email: string, password: string) {
-  const res = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const data = await requestJson<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
 
-  if (res.error) throw new Error(res.error.message);
-  return res.data;
+  cacheToken(data.user?.id);
+  return data;
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw new Error(error.message);
+  try {
+    await requestJson<{ success: boolean }>("/api/auth/logout", {
+      method: "POST",
+    });
+  } finally {
+    clearToken();
+  }
 }
 
 export async function getSession() {
-  const { data } = await supabase.auth.getSession();
-  return data.session;
+  const res = await fetch("/api/auth/me", {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    clearToken();
+    return null;
+  }
+
+  const data = await res.json().catch(() => null);
+  if (data?.user?.id) cacheToken(data.user.id);
+  return data;
 }
 
 export async function getUser() {
-  const { data } = await supabase.auth.getUser();
-  return data.user;
+  const session = await getSession();
+  return session?.user ?? null;
 }
