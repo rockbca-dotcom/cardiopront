@@ -7,7 +7,8 @@ import {
 } from "./auth-session";
 
 export async function getServerUser() {
-  const authUserId = cookies().get(AUTH_COOKIE_NAME)?.value?.trim();
+  const cookieStore = await cookies();
+  const authUserId = cookieStore.get(AUTH_COOKIE_NAME)?.value?.trim();
   if (!authUserId) return null;
 
   const { data, error } = await supabaseAdmin

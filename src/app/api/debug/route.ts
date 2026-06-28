@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const user = await getServerUser();
-    const session = cookies().get(AUTH_COOKIE_NAME)?.value || null;
+    const cookieStore = await cookies();
+    const session = cookieStore.get(AUTH_COOKIE_NAME)?.value || null;
 
     return NextResponse.json({
       hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
