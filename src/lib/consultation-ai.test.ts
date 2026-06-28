@@ -18,9 +18,10 @@ test("parseConsultationAIDraft normalizes a valid payload", () => {
     exames_pedidos: [{ tipo: " ECG ", indicacao: " Avaliar isquemia " }],
     conduta: " Ajustar anti-hipertensivo ",
     medicamentos_ajustados: [{ nome: " Enalapril ", dose: " 10 mg ", acao: " aumentar dose " }],
+    encaminhamentos_sugeridos: [{ especialidade: " Cardiologia ", justificativa: " dor torácica persistente ", prioridade: " alta " }],
     sinais_de_alerta: ["Dor torácica em repouso"],
     orientacoes_paciente: "Retornar com exames",
-    trechos_suporte: ["'dor no peito ao subir escadas'"]
+    trechos_suporte: ["'dor no peito ao subir escadas'"],
   });
 
   const parsed = parseConsultationAIDraft(raw);
@@ -31,6 +32,7 @@ test("parseConsultationAIDraft normalizes a valid payload", () => {
   assert.deepEqual(parsed.achados_relevantes, ["PA elevada"]);
   assert.deepEqual(parsed.exames_pedidos, [{ tipo: "ECG", indicacao: "Avaliar isquemia" }]);
   assert.deepEqual(parsed.medicamentos_ajustados, [{ nome: "Enalapril", dose: "10 mg", acao: "aumentar dose" }]);
+  assert.deepEqual(parsed.encaminhamentos_sugeridos, [{ especialidade: "Cardiologia", justificativa: "dor torácica persistente", prioridade: "alta" }]);
   assert.deepEqual(parsed.trechos_suporte, ["'dor no peito ao subir escadas'"]);
 });
 

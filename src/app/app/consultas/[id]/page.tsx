@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft, CalendarClock, FileText, Mic, Sparkles, User 
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import ConsultationFollowUpPanel from "@/components/consulta/ConsultationFollowUpPanel";
 import SynthesisPanel from "@/components/consulta/SynthesisPanel";
 import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
@@ -34,6 +35,7 @@ interface ConsultationDetail {
   transcricao_completa: string | null;
   sintese_ia: ConsultationAIDraft | null;
   pacientes?: {
+    id: string;
     nome: string;
     nascimento: string | null;
     sexo: string | null;
@@ -224,6 +226,8 @@ export default function ConsultaDetalhePage() {
             </div>
 
             <div className="space-y-6">
+              <ConsultationFollowUpPanel consultationId={consulta.id} synthesis={consulta.sintese_ia} />
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary-600" />

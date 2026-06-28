@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertTriangle, Brain, FileText, MessageSquare, Pill, Stethoscope } from "lucide-react";
+import { AlertTriangle, ArrowRight, Brain, FileText, MessageSquare, Pill, Stethoscope } from "lucide-react";
 
 import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
@@ -88,6 +88,28 @@ export default function SynthesisPanel({ synthesis }: SynthesisPanelProps) {
                 <div key={index} className="text-sm text-surface-700">
                   <span className="font-medium">{medicamento.nome}</span> — {medicamento.dose}
                   {medicamento.acao ? ` (${medicamento.acao})` : ""}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {synthesis.encaminhamentos_sugeridos.length > 0 && (
+          <Section icon={<ArrowRight className="w-4 h-4" />} title="Encaminhamentos sugeridos">
+            <div className="space-y-2">
+              {synthesis.encaminhamentos_sugeridos.map((encaminhamento, index) => (
+                <div key={index} className="rounded-lg border border-surface-200 bg-surface-50 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-surface-900">{encaminhamento.especialidade}</p>
+                    {encaminhamento.prioridade && (
+                      <span className="rounded-full bg-surface-100 px-2.5 py-1 text-[11px] font-semibold text-surface-600">
+                        {encaminhamento.prioridade}
+                      </span>
+                    )}
+                  </div>
+                  {encaminhamento.justificativa && (
+                    <p className="mt-1 text-sm text-surface-700 whitespace-pre-line">{encaminhamento.justificativa}</p>
+                  )}
                 </div>
               ))}
             </div>

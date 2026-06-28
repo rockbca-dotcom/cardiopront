@@ -16,6 +16,7 @@ const baseDraft = {
   exames_pedidos: [],
   conduta: "  Ajustar anti-hipertensivo  ",
   medicamentos_ajustados: [],
+  encaminhamentos_sugeridos: [],
   sinais_de_alerta: [],
   orientacoes_paciente: "  Retorno em 7 dias  ",
   trechos_suporte: ["'dor no peito ao subir escadas'"]

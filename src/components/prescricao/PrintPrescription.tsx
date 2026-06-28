@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { Printer, Loader2 } from "lucide-react";
+
+import { getSession } from "@/lib/auth";
 import PrescriptionPdf from "@/lib/generatePrescriptionPdf";
 
 interface PrescriptionItem {
@@ -36,28 +38,27 @@ export default function PrintPrescription({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDoctorData();
+    void fetchDoctorData();
   }, []);
 
   async function fetchDoctorData() {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
     try {
-      const res = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.user?.medico) {
+      const session = await getSession();
+      const medico = session?.user?.medico;
+
+      if (medico) {
         setDoctor({
-          nome: data.user.medico.nome,
-          crm: data.user.medico.crm,
-          crmUf: data.user.medico.crm_uf,
-          especialidade: data.user.medico.especialidade,
+          nome: medico.nome,
+          crm: medico.crm,
+          crmUf: medico.crm_uf,
+          especialidade: medico.especialidade,
         });
+      } else {
+        setDoctor(null);
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error("Error loading doctor data:", error);
+      setDoctor(null);
     } finally {
       setLoading(false);
     }

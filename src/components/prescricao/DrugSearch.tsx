@@ -20,21 +20,24 @@ export interface MedicamentoCatalogo {
 
 interface DrugSearchProps {
   onSelectDrug: (drug: MedicamentoCatalogo) => void;
+  initialSearch?: string;
 }
 
-export default function DrugSearch({ onSelectDrug }: DrugSearchProps) {
+export default function DrugSearch({ onSelectDrug, initialSearch = "" }: DrugSearchProps) {
   const [drugs, setDrugs] = useState<MedicamentoCatalogo[]>([]);
   const [search, setSearch] = useState("");
   const [activeClass, setActiveClass] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    setSearch(initialSearch.trim());
+  }, [initialSearch]);
+
   useEffect(() => { fetchDrugs(); }, []);
 
   async function fetchDrugs() {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      const res = await fetch("/api/prescricao/catalogo", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/prescricao/catalogo", { credentials: "include" });
       const data = await res.json();
       setDrugs(data.medicamentos || []);
     } catch { /* ignore */ } finally { setLoading(false); }

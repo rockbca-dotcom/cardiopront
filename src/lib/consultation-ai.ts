@@ -25,6 +25,14 @@ const medicationAdjustmentSchema = z
   })
   .strip();
 
+const referralSuggestionSchema = z
+  .object({
+    especialidade: textSchema,
+    justificativa: textSchema,
+    prioridade: textSchema,
+  })
+  .strip();
+
 export const consultationAIDraftSchema = z
   .object({
     motivo_consulta: textSchema,
@@ -35,6 +43,7 @@ export const consultationAIDraftSchema = z
     exames_pedidos: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(examSuggestionSchema)),
     conduta: textSchema,
     medicamentos_ajustados: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(medicationAdjustmentSchema)),
+    encaminhamentos_sugeridos: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(referralSuggestionSchema)),
     sinais_de_alerta: textListSchema,
     orientacoes_paciente: textSchema,
     trechos_suporte: textListSchema,
@@ -52,6 +61,7 @@ export const CONSULTATION_AI_RESPONSE_TEMPLATE: ConsultationAIDraft = {
   exames_pedidos: [],
   conduta: "",
   medicamentos_ajustados: [],
+  encaminhamentos_sugeridos: [],
   sinais_de_alerta: [],
   orientacoes_paciente: "",
   trechos_suporte: [],
@@ -66,6 +76,7 @@ Regras:
 - Não invente dados ausentes.
 - Se algo não estiver na transcrição, use string vazia ou array vazio.
 - Os trechos de suporte devem ser curtos, literais e úteis para revisão.
+- Se houver indicação de encaminhamento, preencha encaminhamentos_sugeridos com especialidade, justificativa e prioridade.
 - Preserve o conteúdo clínico relevante com objetividade.
 
 Contrato de saída:

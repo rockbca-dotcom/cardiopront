@@ -31,6 +31,9 @@ interface ExamBuilderProps {
     paciente_id: string;
     exams: ExamItem[];
   }) => Promise<void>;
+  initialSearch?: string;
+  initialCategory?: string;
+  initialPatientId?: string;
 }
 
 const categorias = [
@@ -40,7 +43,7 @@ const categorias = [
   { id: "outros", label: "Outros" },
 ];
 
-export default function ExamBuilder({ patients, onSave }: ExamBuilderProps) {
+export default function ExamBuilder({ patients, onSave, initialSearch = "", initialCategory = "cardiovascular", initialPatientId = "" }: ExamBuilderProps) {
   const [tipos, setTipos] = useState<TipoExame[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("cardiovascular");
@@ -52,14 +55,26 @@ export default function ExamBuilder({ patients, onSave }: ExamBuilderProps) {
     fetchExamTypes();
   }, []);
 
+  useEffect(() => {
+    setSearch(initialSearch.trim());
+  }, [initialSearch]);
+
+  useEffect(() => {
+    setActiveCategory(initialCategory || "cardiovascular");
+  }, [initialCategory]);
+
+  useEffect(() => {
+    if (initialPatientId) {
+      setSelectedPatient(initialPatientId);
+    }
+  }, [initialPatientId]);
+
   async function fetchExamTypes() {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-    const res = await fetch("/api/exames/catalogo", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setTipos(data.tipos || []);
+    try {
+      const res = await fetch("/api/exames/catalogo", { credentials: "include" });
+      const data = await res.json();
+      setTipos(data.tipos || []);
+    } catch { /* ignore */ }
   }
 
   function addExam(tipo: TipoExame) {
