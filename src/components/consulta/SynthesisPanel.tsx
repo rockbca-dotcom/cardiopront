@@ -1,15 +1,15 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { AlertTriangle, Brain, FileText, MessageSquare, Pill, Stethoscope } from "lucide-react";
 
 import type { ConsultationAIDraft } from "@/lib/consultation-ai";
 
 interface SynthesisPanelProps {
   synthesis: ConsultationAIDraft | null;
-  onFillForm: (data: ConsultationAIDraft) => void;
 }
 
-export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanelProps) {
+export default function SynthesisPanel({ synthesis }: SynthesisPanelProps) {
   if (!synthesis) return null;
 
   return (
@@ -18,6 +18,10 @@ export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanel
         <Brain className="w-5 h-5 text-primary-600" />
         <h3 className="font-semibold text-surface-900">Síntese da consulta por IA</h3>
       </div>
+
+      <p className="text-sm text-surface-600 mb-4">
+        Revisão clínica estruturada da gravação. Os campos editáveis são refinados no painel de preenchimento guiado logo abaixo.
+      </p>
 
       <div className="space-y-4">
         {synthesis.motivo_consulta && (
@@ -116,10 +120,6 @@ export default function SynthesisPanel({ synthesis, onFillForm }: SynthesisPanel
           </Section>
         )}
       </div>
-
-      <button type="button" onClick={() => onFillForm(synthesis)} className="mt-4 btn-secondary w-full text-xs">
-        Preencher formulário com esta síntese
-      </button>
     </div>
   );
 }
@@ -130,9 +130,9 @@ function Section({
   children,
   variant = "default",
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: "default" | "warning";
 }) {
   return (
