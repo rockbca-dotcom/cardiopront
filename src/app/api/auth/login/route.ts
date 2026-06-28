@@ -20,12 +20,12 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, anonKey);
 
-    // Query the view to get user with encrypted password
+    // Query the view to get user
     const { data: users, error: queryError } = await supabase
       .from("auth_users_view")
       .select("id, email, encrypted_password, nome, crm, crm_uf, plano")
       .eq("email", email)
-      .eq("email_confirmed_at", null)  // This won't work, we need IS NOT NULL
+      .not("email_confirmed_at", "is", null)
       .maybeSingle();
 
     if (queryError || !users) {
