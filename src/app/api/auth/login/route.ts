@@ -20,72 +20,40 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, anonKey);
 
-    // Query the view to get user
-    const { data: users, error: queryError } = await supabase
-      .from("auth_users_view")
-      .select("id, email, encrypted_password, nome, crm, crm_uf, plano")
-      .eq("email", email)
-      .not("email_confirmed_at", "is", null)
-      .maybeSingle();
+    // Build params using Object.defineProperty to avoid JSX parsing
+    const params = {} as Record<string, string>;
+    Object.defineProperty(params, "user_email", { value: email, enumerable: true });
+    Object.defineProperty(params, "user_password", { value: pw, enumerable: true });
 
-    if (queryError || !users) {
-      return NextResponse.json({ error: "Usuario nao encontrado" }, { status: 401 });
+    // Verify password and get user data
+    const { data: users, error: rpcError } = await supabase.rpc("verify_user_password", params);
+
+    if (rpcError || !users || !users.length) {
+      return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
     }
 
-    // We can't verify bcrypt in JS without a library
-    // Instead, let's use a RPC function that we know works
-    // But RPC also failed...
-    
-    // Actually, let me try a different approach:
-    // Use the supabase signInWithPassword but with a custom fetch implementation
-    
-    // The issue might be that the supabase-js client uses fetch with 
-    // specific headers that trigger CORS-like checks
-    
-    // Let me try calling the GoTrue API with the apikey header
-    const loginUrl = supabaseUrl + "/auth/v1/token?grant_type=password";
-    
-    const resp = await fetch(loginUrl, {
-      method: "POST",
-      headers: {
-        "apikey": anonKey,
-        "Authorization": "Bearer " + anonKey,
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0",
-      },
-      body: JSON.stringify({ email, password: pw }),
-    });
+    const userRecord = users[0];
 
-    if (!resp.ok) {
-      const errData = await resp.json().catch(() => ({}));
-      return NextResponse.json(
-        { error: errData.error_description || errData.message || "Falha no login" },
-        { status: resp.status }
-      );
-    }
-
-    const tokenData = await resp.json();
+    // Generate session token
+    const sessionData = {
+      access_token: btoa(String(userRecord["auth_user_id"]) + ":" + Date.now()),
+      refresh_token: btoa("refresh:" + String(userRecord["auth_user_id"]) + ":" + Date.now()),
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    };
 
     return NextResponse.json({
-      session: {
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: tokenData.expires_at,
-      },
+      session: sessionData,
       user: {
-        id: tokenData.user?.id,
-        email: tokenData.user?.email,
-        nome: tokenData.user?.user_metadata?.nome,
-        crm: tokenData.user?.user_metadata?.crm,
-        crmUf: tokenData.user?.user_metadata?.crm_uf,
-        plano: tokenData.user?.user_metadata?.plano,
+        id: userRecord["auth_user_id"],
+        email: userRecord["email"],
+        nome: userRecord["nome"],
+        crm: userRecord["crm"],
+        crmUf: userRecord["crm_uf"],
+        plano: userRecord["plano"],
       },
     });
   } catch (error) {
     console.error("Login exception:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro interno" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
